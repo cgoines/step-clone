@@ -98,7 +98,21 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
+
+# External APIs (optional - for enhanced features)
+STATE_DEPT_API_BASE=https://www.state.gov/wp-json/wp/v2
+OPENWEATHER_API_KEY=your-openweather-api-key
+OPENWEATHER_API_URL=https://api.openweathermap.org/data/2.5
+REST_COUNTRIES_API_URL=https://restcountries.com/v3.1
 ```
+
+### External API Integration (Optional)
+
+The system can optionally integrate with external APIs for enhanced functionality:
+
+- **State Department API**: Real travel advisories from state.gov
+- **OpenWeather API**: Weather-related travel alerts (free tier available)
+- **REST Countries API**: Enhanced country information (free, no key required)
 
 ## API Documentation
 

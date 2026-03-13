@@ -6,7 +6,7 @@ let transporter;
 
 const initializeEmailService = () => {
     if (process.env.EMAIL_SERVICE === 'gmail') {
-        transporter = nodemailer.createTransporter({
+        transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
                 user: process.env.GMAIL_USER,
@@ -14,7 +14,7 @@ const initializeEmailService = () => {
             }
         });
     } else if (process.env.SMTP_HOST) {
-        transporter = nodemailer.createTransporter({
+        transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST,
             port: process.env.SMTP_PORT || 587,
             secure: process.env.SMTP_SECURE === 'true',
@@ -25,7 +25,7 @@ const initializeEmailService = () => {
         });
     } else {
         // Development mode - log emails instead of sending
-        transporter = nodemailer.createTransporter({
+        transporter = nodemailer.createTransport({
             streamTransport: true,
             newline: 'unix',
             buffer: true

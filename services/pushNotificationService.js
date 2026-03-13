@@ -5,20 +5,26 @@ const { query } = require('../config/database');
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
     try {
-        const serviceAccount = {
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL
-        };
+        // Check if Firebase credentials are provided
+        if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY || !process.env.FIREBASE_CLIENT_EMAIL) {
+            logger.warn('Firebase credentials not provided. Push notifications will be disabled.');
+        } else {
+            const serviceAccount = {
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+            };
 
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: process.env.FIREBASE_PROJECT_ID
-        });
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+                projectId: process.env.FIREBASE_PROJECT_ID
+            });
 
-        logger.info('Firebase Admin SDK initialized');
+            logger.info('Firebase Admin SDK initialized successfully');
+        }
     } catch (error) {
         logger.error('Failed to initialize Firebase:', error);
+        logger.warn('Push notifications will be disabled. Check your Firebase configuration.');
     }
 }
 
@@ -84,6 +90,12 @@ const sendNotification = async (userId, title, body, severity = 'info', data = {
                 }
             }
         };
+
+        // Check if Firebase is initialized
+        if (!admin.apps.length) {
+            logger.warn('Firebase not initialized. Cannot send push notifications.');
+            return [];
+        }
 
         // Send multicast message
         logger.info(`Sending push notification to ${tokens.length} devices for user ${userId}`);
@@ -267,6 +279,12 @@ const sendTopicNotification = async (topic, title, body, data = {}) => {
                 ...data
             }
         };
+
+        // Check if Firebase is initialized
+        if (!admin.apps.length) {
+            logger.warn('Firebase not initialized. Cannot send topic notifications.');
+            return null;
+        }
 
         const messageId = await admin.messaging().send(message);
         logger.info(`Topic notification sent to ${topic}: ${messageId}`);

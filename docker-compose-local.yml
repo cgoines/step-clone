@@ -1,0 +1,190 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: step-clone-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: step_clone
+      POSTGRES_USER: stepuser
+      POSTGRES_PASSWORD: steppass123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stepuser -d step_clone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - step-clone-network
+
+  # Redis for job queues
+  redis:
+    image: redis:7-alpine
+    container_name: step-clone-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - step-clone-network
+
+  # STEP Clone Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: step-clone-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://stepuser:steppass123@postgres:5432/step_clone
+
+      # JWT Secret (generate a secure one for production!)
+      JWT_SECRET: dev_jwt_secret_change_this_in_production_a1b2c3d4e5f6789012345678901234567890abcdef
+
+      # Redis
+      REDIS_URL: redis://redis:6379
+
+      # Server config
+      NODE_ENV: development
+      PORT: 3000
+      API_BASE_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:3001
+      LOG_LEVEL: info
+
+      # Rate limiting
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+
+      # External APIs (optional - add your keys)
+      STATE_DEPT_API_BASE: https://www.state.gov/wp-json/wp/v2
+      OPENWEATHER_API_URL: https://api.openweathermap.org/data/2.5
+      REST_COUNTRIES_API_URL: https://restcountries.com/v3.1
+
+      # Messaging services (add your credentials)
+      # TWILIO_ACCOUNT_SID: your_twilio_sid
+      # TWILIO_AUTH_TOKEN: your_twilio_token
+      # TWILIO_PHONE_NUMBER: +1234567890
+
+      # Firebase (add your config)
+      # FIREBASE_PROJECT_ID: your_project_id
+      # FIREBASE_PRIVATE_KEY: your_private_key
+      # FIREBASE_CLIENT_EMAIL: your_client_email
+
+      # Email (add your SMTP config)
+      # EMAIL_SERVICE: gmail
+      # GMAIL_USER: your_email@gmail.com
+      # GMAIL_APP_PASSWORD: your_app_password
+      # FROM_EMAIL: noreply@stepclone.com
+    volumes:
+      - ./logs:/app/logs
+      - app_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - step-clone-network
+
+  # Database migration and seeding service
+  db-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: step-clone-db-setup
+    environment:
+      DATABASE_URL: postgresql://stepuser:steppass123@postgres:5432/step_clone
+    volumes:
+      - ./database:/app/database:ro
+      - ./scripts:/app/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 5 &&
+        echo 'Running database migration...' &&
+        npm run migrate &&
+        echo 'Seeding database with sample data...' &&
+        npm run seed &&
+        echo 'Database setup complete!'
+      "
+    networks:
+      - step-clone-network
+
+  # Redis Commander (Redis GUI) - Optional
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: step-clone-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - step-clone-network
+    profiles:
+      - tools
+
+  # PgAdmin (PostgreSQL GUI) - Optional
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: step-clone-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@stepclone.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - step-clone-network
+    profiles:
+      - tools
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  app_node_modules:
+    driver: local
+
+# Custom network
+networks:
+  step-clone-network:
+    driver: bridge

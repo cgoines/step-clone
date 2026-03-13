@@ -69,6 +69,102 @@ npm run dev
 
 The API will be available at `http://localhost:3000`
 
+## 🐳 Docker Setup (Recommended)
+
+The easiest way to run the complete STEP Clone system is using Docker with the included PostgreSQL and Redis services.
+
+### Prerequisites
+- Docker and Docker Compose
+- 4GB+ RAM available for containers
+
+### Quick Start with Docker
+
+```bash
+# 1. Clone the repository
+git clone <your-repo-url>
+cd step-clone
+
+# 2. Start all services (PostgreSQL, Redis, and the app)
+npm run docker:up
+
+# 3. The system will automatically:
+#    - Start PostgreSQL database
+#    - Start Redis for job queues
+#    - Run database migrations
+#    - Seed sample data (countries, test users, alerts)
+#    - Start the API server
+
+# 4. Access the application
+# API: http://localhost:3000
+# Health Check: http://localhost:3000/health
+```
+
+### Docker Services
+
+| Service | Port | Description | Credentials |
+|---------|------|-------------|-------------|
+| **API Server** | 3000 | Main STEP Clone application | - |
+| **PostgreSQL** | 5432 | Database | `stepuser` / `steppass123` |
+| **Redis** | 6379 | Job queues & caching | No auth |
+| **PgAdmin** | 8080 | Database GUI (optional) | `admin@stepclone.com` / `admin123` |
+| **Redis Commander** | 8081 | Redis GUI (optional) | `admin` / `admin123` |
+
+### Docker Commands
+
+```bash
+# Start all services
+npm run docker:up
+
+# View application logs
+npm run docker:logs
+
+# Stop all services
+npm run docker:down
+
+# Rebuild containers (after code changes)
+npm run docker:build
+
+# Start with database GUIs
+npm run docker:tools
+
+# Complete cleanup (removes all data!)
+npm run docker:clean
+
+# Restart just the app (after code changes)
+npm run docker:restart
+```
+
+### Docker Environment Configuration
+
+The Docker setup uses environment variables defined in `docker-compose-local.yml`. To add your API keys:
+
+1. **Copy the Docker environment template:**
+```bash
+cp .env.docker .env
+```
+
+2. **Add your API credentials to `.env`:**
+```env
+# Twilio (for SMS)
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# Firebase (for push notifications)
+FIREBASE_PROJECT_ID=your_project_id
+# ... etc
+```
+
+3. **Restart the application:**
+```bash
+npm run docker:restart
+```
+
+### Demo Users (Docker)
+After the containers start, you can use these pre-seeded accounts:
+- **Demo User**: `demo@stepclone.com` / `demo123456`
+- **Admin User**: `admin@stepclone.com` / `admin123456`
+
 ## Environment Configuration
 
 Key environment variables in `.env`:

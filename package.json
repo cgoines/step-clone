@@ -14,7 +14,14 @@
     "load-test": "node scripts/loadTest.js",
     "health": "node scripts/healthCheck.js",
     "health:verbose": "node scripts/healthCheck.js --verbose",
-    "logs": "tail -f logs/combined.log"
+    "logs": "tail -f logs/combined.log",
+    "docker:up": "docker-compose -f docker-compose-local.yml up -d",
+    "docker:down": "docker-compose -f docker-compose-local.yml down",
+    "docker:build": "docker-compose -f docker-compose-local.yml build",
+    "docker:logs": "docker-compose -f docker-compose-local.yml logs -f app",
+    "docker:restart": "docker-compose -f docker-compose-local.yml restart app",
+    "docker:clean": "docker-compose -f docker-compose-local.yml down -v --remove-orphans",
+    "docker:tools": "docker-compose -f docker-compose-local.yml --profile tools up -d pgadmin redis-commander"
   },
   "dependencies": {
     "axios": "^1.6.2",

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -49,13 +47,13 @@ services:
     container_name: step-clone-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "9999:3000"
     environment:
       # Database
       DATABASE_URL: postgresql://stepuser:steppass123@postgres:5432/step_clone
 
       # JWT Secret (generate a secure one for production!)
-      JWT_SECRET: dev_jwt_secret_change_this_in_production_a1b2c3d4e5f6789012345678901234567890abcdef
+      JWT_SECRET: a78b33cad5d89cb69111b073305ab662cf08c81537060942a4b204c5127cf9e6da149043c44e25dfad87b8c82c2d0aaeb15abe6cf54e1e8b673e8b14c6072cf5
 
       # Redis
       REDIS_URL: redis://redis:6379
@@ -63,7 +61,7 @@ services:
       # Server config
       NODE_ENV: development
       PORT: 3000
-      API_BASE_URL: http://localhost:3000
+      API_BASE_URL: http://localhost:9999
       FRONTEND_URL: http://localhost:3001
       LOG_LEVEL: info
 
@@ -77,14 +75,14 @@ services:
       REST_COUNTRIES_API_URL: https://restcountries.com/v3.1
 
       # Messaging services (add your credentials)
-      # TWILIO_ACCOUNT_SID: your_twilio_sid
-      # TWILIO_AUTH_TOKEN: your_twilio_token
-      # TWILIO_PHONE_NUMBER: +1234567890
+      TWILIO_ACCOUNT_SID: AC459ca62b0d1504109a73cbcead474c1e
+      TWILIO_AUTH_TOKEN: b6601ef9bacc7afdc3b7b41cd2d8bb88
+      TWILIO_PHONE_NUMBER: +18889910722 
 
       # Firebase (add your config)
-      # FIREBASE_PROJECT_ID: your_project_id
-      # FIREBASE_PRIVATE_KEY: your_private_key
-      # FIREBASE_CLIENT_EMAIL: your_client_email
+      FIREBASE_PROJECT_ID: step-clone 
+      FIREBASE_PRIVATE_KEY: ffa985b01a6acf0e937567f716a4402614af6dd8 
+      FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@step-clone.iam.gserviceaccount.com
 
       # Email (add your SMTP config)
       # EMAIL_SERVICE: gmail

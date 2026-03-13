@@ -67,7 +67,7 @@ npm run seed
 npm run dev
 ```
 
-The API will be available at `http://localhost:3000`
+The API will be available at `http://localhost:9999`
 
 ## 🐳 Docker Setup (Recommended)
 
@@ -95,15 +95,15 @@ npm run docker:up
 #    - Start the API server
 
 # 4. Access the application
-# API: http://localhost:3000
-# Health Check: http://localhost:3000/health
+# API: http://localhost:9999
+# Health Check: http://localhost:9999/health
 ```
 
 ### Docker Services
 
 | Service | Port | Description | Credentials |
 |---------|------|-------------|-------------|
-| **API Server** | 3000 | Main STEP Clone application | - |
+| **API Server** | 9999 | Main STEP Clone application | - |
 | **PostgreSQL** | 5432 | Database | `stepuser` / `steppass123` |
 | **Redis** | 6379 | Job queues & caching | No auth |
 | **PgAdmin** | 8080 | Database GUI (optional) | `admin@stepclone.com` / `admin123` |
@@ -366,7 +366,7 @@ npm test
 npm run load-test
 
 # Test specific API endpoints
-curl -X POST http://localhost:3000/api/auth/login \
+curl -X POST http://localhost:9999/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"demo@stepclone.com","password":"demo123456"}'
 ```

@@ -19,9 +19,9 @@ help:
 	@echo "  make health  - Check application health"
 	@echo ""
 	@echo "🌐 Service URLs after 'make up':"
-	@echo "  API Server:       http://localhost:3000"
-	@echo "  Health Check:     http://localhost:3000/health"
-	@echo "  API Docs:         http://localhost:3000/api"
+	@echo "  API Server:       http://localhost:9999"
+	@echo "  Health Check:     http://localhost:9999/health"
+	@echo "  API Docs:         http://localhost:9999/api"
 	@echo ""
 	@echo "🛠  Admin Tools (after 'make tools'):"
 	@echo "  PgAdmin:          http://localhost:8080"
@@ -31,7 +31,7 @@ up:
 	@echo "🚀 Starting STEP Clone services..."
 	docker-compose -f docker-compose-local.yml up -d
 	@echo "✅ Services started! Check status with 'make status'"
-	@echo "🌐 API available at: http://localhost:3000"
+	@echo "🌐 API available at: http://localhost:9999"
 
 down:
 	@echo "🛑 Stopping STEP Clone services..."
@@ -72,7 +72,7 @@ status:
 
 health:
 	@echo "🏥 Checking application health..."
-	@curl -s http://localhost:3000/health | jq '.' 2>/dev/null || curl -s http://localhost:3000/health || echo "❌ Health check failed - is the app running?"
+	@curl -s http://localhost:9999/health | jq '.' 2>/dev/null || curl -s http://localhost:9999/health || echo "❌ Health check failed - is the app running?"
 
 # Quick setup target
 setup: up

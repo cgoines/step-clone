@@ -80,12 +80,12 @@ services:
       TWILIO_PHONE_NUMBER: +18889910722 
 
       # Firebase (add your config)
-      # FIREBASE_PROJECT_ID: your-firebase-project-id
-      # FIREBASE_PRIVATE_KEY: |
-      #   -----BEGIN PRIVATE KEY-----
-      #   your_actual_private_key_content_here
-      #   -----END PRIVATE KEY-----
-      # FIREBASE_CLIENT_EMAIL: firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+      FIREBASE_PROJECT_ID: step-clone
+      FIREBASE_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        ffa985b01a6acf0e937567f716a4402614af6dd8
+        -----END PRIVATE KEY-----
+      FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@step-clone.iam.gserviceaccount.com
 
       # Email (add your SMTP config)
       # EMAIL_SERVICE: gmail

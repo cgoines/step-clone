@@ -36,7 +36,7 @@ USER nodeuser
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (res) => { \
     process.exit(res.statusCode === 200 ? 0 : 1) \
   }).on('error', () => process.exit(1))"
@@ -44,5 +44,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Set entrypoint
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application (use exec form for proper signal handling)
+CMD ["node", "server.js"]

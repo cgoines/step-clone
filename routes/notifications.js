@@ -10,6 +10,196 @@ const { sendEmail } = require('../services/emailService');
 const router = express.Router();
 
 /**
+ * Get notification statistics for admin (all notifications)
+ * GET /api/notifications/admin/stats
+ */
+router.get('/admin/stats', authenticateToken, async (req, res) => {
+    try {
+        const { period = '30d' } = req.query;
+
+        let dateFilter = '';
+        if (period === '7d') {
+            dateFilter = "AND un.created_at >= CURRENT_DATE - INTERVAL '7 days'";
+        } else if (period === '30d') {
+            dateFilter = "AND un.created_at >= CURRENT_DATE - INTERVAL '30 days'";
+        } else if (period === '90d') {
+            dateFilter = "AND un.created_at >= CURRENT_DATE - INTERVAL '90 days'";
+        }
+
+        // Overall stats
+        const overallResult = await query(`
+            SELECT
+                COUNT(*) as total_notifications,
+                COUNT(*) FILTER (WHERE status = 'sent') as sent_count,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed_count,
+                COUNT(*) FILTER (WHERE status = 'delivered') as delivered_count
+            FROM user_notifications un
+            WHERE 1=1 ${dateFilter}
+        `);
+
+        // Daily stats for chart
+        const dailyResult = await query(`
+            SELECT
+                DATE(un.created_at) as date,
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'sent') as sent,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed,
+                COUNT(*) FILTER (WHERE status = 'delivered') as delivered
+            FROM user_notifications un
+            WHERE un.created_at >= CURRENT_DATE - INTERVAL '${period === '7d' ? '7' : period === '30d' ? '30' : '90'} days'
+            GROUP BY DATE(un.created_at)
+            ORDER BY date DESC
+        `);
+
+        // By channel
+        const channelResult = await query(`
+            SELECT
+                channel,
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'sent') as sent,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed
+            FROM user_notifications un
+            WHERE 1=1 ${dateFilter}
+            GROUP BY channel
+            ORDER BY total DESC
+        `);
+
+        res.json({
+            period,
+            overall: overallResult.rows[0],
+            daily: dailyResult.rows,
+            byChannel: channelResult.rows
+        });
+
+    } catch (error) {
+        logger.error('Error fetching admin notification statistics:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get all notifications (admin view)
+ * GET /api/notifications/admin
+ */
+router.get('/admin', authenticateToken, async (req, res) => {
+    try {
+        const {
+            channel,
+            status,
+            alertType,
+            limit = 100,
+            offset = 0,
+            startDate,
+            endDate
+        } = req.query;
+
+        let whereClause = 'WHERE 1=1';
+        const params = [];
+        let paramCount = 0;
+
+        // Filter by channel (sms, push, email)
+        if (channel) {
+            paramCount++;
+            whereClause += ` AND un.channel = $${paramCount}`;
+            params.push(channel);
+        }
+
+        // Filter by status (pending, sent, failed, delivered)
+        if (status) {
+            paramCount++;
+            whereClause += ` AND un.status = $${paramCount}`;
+            params.push(status);
+        }
+
+        // Filter by alert type
+        if (alertType) {
+            paramCount++;
+            whereClause += ` AND a.alert_type = $${paramCount}`;
+            params.push(alertType);
+        }
+
+        // Date range filter
+        if (startDate) {
+            paramCount++;
+            whereClause += ` AND un.created_at >= $${paramCount}`;
+            params.push(startDate);
+        }
+
+        if (endDate) {
+            paramCount++;
+            whereClause += ` AND un.created_at <= $${paramCount}`;
+            params.push(endDate);
+        }
+
+        const result = await query(`
+            SELECT un.id, un.channel, un.status, un.sent_at, un.delivered_at,
+                   un.error_message, un.created_at,
+                   a.id as alert_id, a.title, a.message, a.severity, a.alert_type,
+                   c.name as country_name, c.code as country_code,
+                   u.first_name, u.last_name, u.email
+            FROM user_notifications un
+            JOIN alerts a ON un.alert_id = a.id
+            JOIN users u ON un.user_id = u.id
+            LEFT JOIN countries c ON a.country_id = c.id
+            ${whereClause}
+            ORDER BY un.created_at DESC
+            LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+        `, [...params, parseInt(limit), parseInt(offset)]);
+
+        // Get total count
+        const countResult = await query(`
+            SELECT COUNT(*) as total
+            FROM user_notifications un
+            JOIN alerts a ON un.alert_id = a.id
+            JOIN users u ON un.user_id = u.id
+            ${whereClause}
+        `, params);
+
+        const notifications = result.rows.map(row => ({
+            id: row.id,
+            channel: row.channel,
+            status: row.status,
+            title: row.title,
+            message: row.message,
+            sentAt: row.sent_at,
+            deliveredAt: row.delivered_at,
+            errorMessage: row.error_message,
+            createdAt: row.created_at,
+            user: {
+                firstName: row.first_name,
+                lastName: row.last_name,
+                email: row.email
+            },
+            alert: {
+                id: row.alert_id,
+                title: row.title,
+                message: row.message,
+                severity: row.severity,
+                type: row.alert_type,
+                country: row.country_name ? {
+                    name: row.country_name,
+                    code: row.country_code
+                } : null
+            }
+        }));
+
+        res.json({
+            notifications,
+            pagination: {
+                total: parseInt(countResult.rows[0].total),
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                hasMore: parseInt(offset) + result.rows.length < parseInt(countResult.rows[0].total)
+            }
+        });
+
+    } catch (error) {
+        logger.error('Error fetching admin notifications:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get user's notifications history
  * GET /api/notifications
  */

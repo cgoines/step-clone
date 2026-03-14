@@ -72,6 +72,57 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 /**
+ * Get country statistics
+ * GET /api/countries/stats
+ */
+router.get('/stats', optionalAuth, async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT
+                risk_level,
+                COUNT(*) as count
+            FROM countries
+            GROUP BY risk_level
+            ORDER BY
+                CASE risk_level
+                    WHEN 'low' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'high' THEN 3
+                    WHEN 'critical' THEN 4
+                END
+        `);
+
+        const totalResult = await query('SELECT COUNT(*) as total FROM countries');
+
+        // Get recent alerts count by country
+        const alertsResult = await query(`
+            SELECT
+                c.name,
+                c.risk_level,
+                COUNT(a.id) as active_alerts
+            FROM countries c
+            LEFT JOIN alerts a ON c.id = a.country_id
+                AND a.is_active = true
+                AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
+            GROUP BY c.id, c.name, c.risk_level
+            HAVING COUNT(a.id) > 0
+            ORDER BY COUNT(a.id) DESC
+            LIMIT 10
+        `);
+
+        res.json({
+            total: parseInt(totalResult.rows[0].total),
+            byRiskLevel: result.rows,
+            countriesWithActiveAlerts: alertsResult.rows
+        });
+
+    } catch (error) {
+        logger.error('Error fetching country statistics:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get country by ID
  * GET /api/countries/:id
  */
@@ -181,57 +232,6 @@ router.get('/search', optionalAuth, async (req, res) => {
 
     } catch (error) {
         logger.error('Error searching countries:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-/**
- * Get country statistics
- * GET /api/countries/stats
- */
-router.get('/stats', optionalAuth, async (req, res) => {
-    try {
-        const result = await query(`
-            SELECT
-                risk_level,
-                COUNT(*) as count
-            FROM countries
-            GROUP BY risk_level
-            ORDER BY
-                CASE risk_level
-                    WHEN 'low' THEN 1
-                    WHEN 'medium' THEN 2
-                    WHEN 'high' THEN 3
-                    WHEN 'critical' THEN 4
-                END
-        `);
-
-        const totalResult = await query('SELECT COUNT(*) as total FROM countries');
-
-        // Get recent alerts count by country
-        const alertsResult = await query(`
-            SELECT
-                c.name,
-                c.risk_level,
-                COUNT(a.id) as active_alerts
-            FROM countries c
-            LEFT JOIN alerts a ON c.id = a.country_id
-                AND a.is_active = true
-                AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
-            GROUP BY c.id, c.name, c.risk_level
-            HAVING COUNT(a.id) > 0
-            ORDER BY COUNT(a.id) DESC
-            LIMIT 10
-        `);
-
-        res.json({
-            total: parseInt(totalResult.rows[0].total),
-            byRiskLevel: result.rows,
-            countriesWithActiveAlerts: alertsResult.rows
-        });
-
-    } catch (error) {
-        logger.error('Error fetching country statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

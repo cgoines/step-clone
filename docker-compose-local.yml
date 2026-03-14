@@ -48,6 +48,8 @@ services:
     restart: unless-stopped
     ports:
       - "9999:3000"
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
     environment:
       # Database
       DATABASE_URL: postgresql://stepuser:steppass123@postgres:5432/step_clone
@@ -65,9 +67,9 @@ services:
       FRONTEND_URL: http://localhost:3001
       LOG_LEVEL: info
 
-      # Rate limiting
+      # Rate limiting (Increased for development)
       RATE_LIMIT_WINDOW_MS: 900000
-      RATE_LIMIT_MAX_REQUESTS: 100
+      RATE_LIMIT_MAX_REQUESTS: 1000
 
       # External APIs (optional - add your keys)
       STATE_DEPT_API_BASE: https://www.state.gov/wp-json/wp/v2

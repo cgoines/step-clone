@@ -117,6 +117,9 @@ app.use('*', (req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
+// Server instance for graceful shutdown
+let server;
+
 // Initialize queues and start server
 async function startServer() {
     try {
@@ -125,10 +128,16 @@ async function startServer() {
         logger.info('Job queues initialized');
 
         // Start server
-        app.listen(PORT, () => {
+        server = app.listen(PORT, () => {
             logger.info(`STEP Clone API server running on port ${PORT}`);
             logger.info(`Health check: http://localhost:${PORT}/health`);
             logger.info(`API documentation: http://localhost:${PORT}/api`);
+        });
+
+        // Handle server errors
+        server.on('error', (error) => {
+            logger.error('Server error:', error);
+            process.exit(1);
         });
 
     } catch (error) {
@@ -137,17 +146,52 @@ async function startServer() {
     }
 }
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-    logger.info('SIGTERM received, shutting down gracefully');
-    await pool.end();
-    process.exit(0);
+// Graceful shutdown handler
+async function gracefulShutdown(signal) {
+    logger.info(`${signal} received, shutting down gracefully`);
+
+    try {
+        // Stop accepting new connections
+        if (server) {
+            server.close(() => {
+                logger.info('HTTP server closed');
+            });
+        }
+
+        // Close database connections
+        if (pool) {
+            await pool.end();
+            logger.info('Database connections closed');
+        }
+
+        // Give ongoing requests time to finish
+        setTimeout(() => {
+            logger.info('Forcefully shutting down');
+            process.exit(1);
+        }, 10000);
+
+        logger.info('Graceful shutdown completed');
+        process.exit(0);
+
+    } catch (error) {
+        logger.error('Error during graceful shutdown:', error);
+        process.exit(1);
+    }
+}
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception:', error);
+    process.exit(1);
 });
 
-process.on('SIGINT', async () => {
-    logger.info('SIGINT received, shutting down gracefully');
-    await pool.end();
-    process.exit(0);
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled rejection at:', promise, 'reason:', reason);
+    process.exit(1);
 });
 
 startServer();

@@ -13,9 +13,11 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
-  Globe
+  Globe,
+  X
 } from 'lucide-react'
 import { apiService } from '../services/api'
+import WorldMap from '../components/WorldMap'
 import toast from 'react-hot-toast'
 
 const SEVERITY_COLORS = {
@@ -36,10 +38,12 @@ const ALERT_TYPE_OPTIONS = [
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState([])
+  const [countries, setCountries] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterSeverity, setFilterSeverity] = useState('all')
   const [filterType, setFilterType] = useState('all')
+  const [filterCountry, setFilterCountry] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAlert, setEditingAlert] = useState(null)
   const [stats, setStats] = useState({
@@ -52,6 +56,7 @@ export default function AlertsPage() {
   useEffect(() => {
     fetchAlerts()
     fetchStats()
+    fetchCountries()
   }, [])
 
   const fetchAlerts = async () => {
@@ -73,6 +78,15 @@ export default function AlertsPage() {
       setStats(response.data.overall)
     } catch (error) {
       console.error('Error fetching alert stats:', error)
+    }
+  }
+
+  const fetchCountries = async () => {
+    try {
+      const response = await apiService.getCountries({ limit: 300 })
+      setCountries(response.data.countries || [])
+    } catch (error) {
+      console.error('Error fetching countries:', error)
     }
   }
 
@@ -98,9 +112,18 @@ export default function AlertsPage() {
 
     const matchesSeverity = filterSeverity === 'all' || alert.severity === filterSeverity
     const matchesType = filterType === 'all' || alert.alertType === filterType
+    const matchesCountry = !filterCountry || alert.country?.code === filterCountry.code
 
-    return matchesSearch && matchesSeverity && matchesType
+    return matchesSearch && matchesSeverity && matchesType && matchesCountry
   })
+
+  const handleCountryClick = (country) => {
+    setFilterCountry(country)
+  }
+
+  const clearCountryFilter = () => {
+    setFilterCountry(null)
+  }
 
   if (loading) {
     return (
@@ -178,6 +201,16 @@ export default function AlertsPage() {
         </div>
       </div>
 
+      {/* World Map */}
+      <div className="card">
+        <WorldMap
+          alerts={alerts}
+          countries={countries}
+          onCountryClick={handleCountryClick}
+          selectedCountryId={filterCountry?.id}
+        />
+      </div>
+
       {/* Search and Filter */}
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -221,6 +254,27 @@ export default function AlertsPage() {
           </div>
         </div>
       </div>
+
+      {/* Country Filter Display */}
+      {filterCountry && (
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Globe className="h-5 w-5 text-blue-600" />
+              <span className="text-sm font-medium text-gray-900">
+                Showing alerts for: <span className="text-blue-600">{filterCountry.name}</span>
+              </span>
+            </div>
+            <button
+              onClick={clearCountryFilter}
+              className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <X className="h-4 w-4" />
+              <span>Clear filter</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Alerts List */}
       <div className="card">
@@ -301,7 +355,7 @@ export default function AlertsPage() {
             <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No alerts found</h3>
             <p className="text-gray-500">
-              {searchTerm || filterSeverity !== 'all' || filterType !== 'all'
+              {searchTerm || filterSeverity !== 'all' || filterType !== 'all' || filterCountry
                 ? 'Try adjusting your search or filter criteria'
                 : 'No alerts have been created yet'}
             </p>

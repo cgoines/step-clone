@@ -153,6 +153,11 @@ class ApiService {
     return this.get('/travel-plans/stats')
   }
 
+  // Admin travel plans endpoints
+  async getAdminTravelPlans(params = {}) {
+    return this.get('/travel-plans/admin', { params })
+  }
+
   // Notifications endpoints
   async getNotifications(params = {}) {
     return this.get('/notifications', { params })

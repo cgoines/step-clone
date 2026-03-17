@@ -50,14 +50,18 @@ export default function Dashboard() {
     try {
       setLoading(true)
 
-      // Fetch basic data that we know works
+      // Fetch all the required data
       const alertsRes = await apiService.getAlerts({ limit: 1000 }).catch(() => ({ data: { alerts: [] } }))
-      const countriesRes = await apiService.getCountries().catch(() => ({ data: { countries: [] } }))
+      const countriesRes = await apiService.getCountries({ limit: 200 }).catch(() => ({ data: { countries: [] } }))
+      const usersRes = await apiService.getUsers({ limit: 1000 }).catch(() => ({ data: { users: [] } }))
+      const travelPlansRes = await apiService.getAdminTravelPlans({ limit: 1000 }).catch(() => ({ data: { travelPlans: [] } }))
       const healthRes = await apiService.getHealth().catch(() => ({ data: { status: 'unknown' } }))
 
       // Calculate stats from the actual data
       const alerts = alertsRes.data.alerts || []
       const countries = countriesRes.data.countries || []
+      const users = usersRes.data.users || []
+      const travelPlans = travelPlansRes.data.travelPlans || []
 
       const alertStats = {
         total_alerts: alerts.length,
@@ -79,11 +83,33 @@ export default function Dashboard() {
         }, [])
       }
 
+      const userStats = {
+        total: users.length,
+        verified: users.filter(u => u.isVerified).length
+      }
+
+      // Calculate travel plan stats by dates
+      const now = new Date()
+      const travelPlanStats = {
+        total: travelPlans.length,
+        active: travelPlans.filter(plan => {
+          const start = new Date(plan.departureDate)
+          const end = new Date(plan.returnDate)
+          return now.toDateString() === start.toDateString() || (now > start && now <= end)
+        }).length,
+        upcoming: travelPlans.filter(plan => {
+          const start = new Date(plan.departureDate)
+          return now < start
+        }).length
+      }
+
       // Update stats
       setStats(prev => ({
         ...prev,
         alerts: alertStats,
-        countries: countryStats
+        countries: countryStats,
+        users: userStats,
+        travelPlans: travelPlanStats
       }))
 
       setRecentAlerts(alerts.slice(0, 5))
@@ -175,7 +201,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Travel Plans"
-          value={stats.travelPlans.active}
+          value={stats.travelPlans.total}
           icon={MapPin}
           color="purple"
           link="/travel-plans"

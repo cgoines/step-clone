@@ -1,29 +1,26 @@
 {
-  "name": "step-clone-admin",
-  "version": "1.0.0",
-  "description": "STEP Clone Admin Dashboard",
+  "name": "step-clone-user-portal",
   "private": true,
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3002 --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview --port 3002 --host 0.0.0.0"
   },
   "dependencies": {
-    "@headlessui/react": "^1.7.17",
     "axios": "^1.6.2",
-    "clsx": "^2.0.0",
-    "date-fns": "^2.30.0",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
-    "react-router-dom": "^6.20.1",
-    "react-simple-maps": "^3.0.0",
-    "recharts": "^2.8.0"
+    "react-router-dom": "^6.20.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.0",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",

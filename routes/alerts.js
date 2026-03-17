@@ -118,6 +118,73 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 /**
+ * Get alert statistics
+ * GET /api/alerts/stats
+ */
+router.get('/stats', optionalAuth, async (req, res) => {
+    try {
+        // Overall alert statistics
+        const overallStats = await query(`
+            SELECT
+                COUNT(*) as total_alerts,
+                COUNT(*) FILTER (WHERE is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)) as active_alerts,
+                COUNT(*) FILTER (WHERE severity = 'emergency') as emergency_alerts,
+                COUNT(*) FILTER (WHERE severity = 'critical') as critical_alerts
+            FROM alerts
+        `);
+
+        // Alerts by type
+        const typeStats = await query(`
+            SELECT alert_type, COUNT(*) as count
+            FROM alerts
+            WHERE is_active = true
+                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            GROUP BY alert_type
+            ORDER BY count DESC
+        `);
+
+        // Alerts by severity
+        const severityStats = await query(`
+            SELECT severity, COUNT(*) as count
+            FROM alerts
+            WHERE is_active = true
+                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            GROUP BY severity
+            ORDER BY
+                CASE severity
+                    WHEN 'emergency' THEN 1
+                    WHEN 'critical' THEN 2
+                    WHEN 'warning' THEN 3
+                    WHEN 'info' THEN 4
+                END
+        `);
+
+        // Countries with most alerts
+        const countryStats = await query(`
+            SELECT c.name, c.code, COUNT(*) as alert_count
+            FROM alerts a
+            JOIN countries c ON a.country_id = c.id
+            WHERE a.is_active = true
+                AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
+            GROUP BY c.id, c.name, c.code
+            ORDER BY alert_count DESC
+            LIMIT 10
+        `);
+
+        res.json({
+            overall: overallStats.rows[0],
+            byType: typeStats.rows,
+            bySeverity: severityStats.rows,
+            topCountries: countryStats.rows
+        });
+
+    } catch (error) {
+        logger.error('Error fetching alert statistics:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get alert by ID
  * GET /api/alerts/:id
  */
@@ -361,73 +428,6 @@ router.get('/my-destinations', authenticateToken, async (req, res) => {
 
     } catch (error) {
         logger.error('Error fetching user destination alerts:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-/**
- * Get alert statistics
- * GET /api/alerts/stats
- */
-router.get('/stats', optionalAuth, async (req, res) => {
-    try {
-        // Overall alert statistics
-        const overallStats = await query(`
-            SELECT
-                COUNT(*) as total_alerts,
-                COUNT(*) FILTER (WHERE is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)) as active_alerts,
-                COUNT(*) FILTER (WHERE severity = 'emergency') as emergency_alerts,
-                COUNT(*) FILTER (WHERE severity = 'critical') as critical_alerts
-            FROM alerts
-        `);
-
-        // Alerts by type
-        const typeStats = await query(`
-            SELECT alert_type, COUNT(*) as count
-            FROM alerts
-            WHERE is_active = true
-                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-            GROUP BY alert_type
-            ORDER BY count DESC
-        `);
-
-        // Alerts by severity
-        const severityStats = await query(`
-            SELECT severity, COUNT(*) as count
-            FROM alerts
-            WHERE is_active = true
-                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-            GROUP BY severity
-            ORDER BY
-                CASE severity
-                    WHEN 'emergency' THEN 1
-                    WHEN 'critical' THEN 2
-                    WHEN 'warning' THEN 3
-                    WHEN 'info' THEN 4
-                END
-        `);
-
-        // Countries with most alerts
-        const countryStats = await query(`
-            SELECT c.name, c.code, COUNT(*) as alert_count
-            FROM alerts a
-            JOIN countries c ON a.country_id = c.id
-            WHERE a.is_active = true
-                AND (a.expires_at IS NULL OR a.expires_at > CURRENT_TIMESTAMP)
-            GROUP BY c.id, c.name, c.code
-            ORDER BY alert_count DESC
-            LIMIT 10
-        `);
-
-        res.json({
-            overall: overallStats.rows[0],
-            byType: typeStats.rows,
-            bySeverity: severityStats.rows,
-            topCountries: countryStats.rows
-        });
-
-    } catch (error) {
-        logger.error('Error fetching alert statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

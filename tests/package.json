@@ -1,0 +1,22 @@
+{
+  "name": "step-clone-tests",
+  "version": "1.0.0",
+  "description": "Regression tests for STEP Clone application",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:regression": "jest --testPathPattern=regression",
+    "test:api": "jest --testPathPattern=api",
+    "test:all": "npm run test:api && npm run test:integration && npm run test:regression"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "axios": "^1.6.0",
+    "@types/jest": "^29.5.8",
+    "puppeteer": "^21.5.2",
+    "wait-for-expect": "^3.0.2"
+  }
+}

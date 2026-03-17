@@ -4,33 +4,8 @@ const logger = require('../utils/logger');
 
 require('dotenv').config();
 
-// Sample countries data
-const countries = [
-    { name: 'United States', code: 'US', iso_code: 'USA', latitude: 39.8283, longitude: -98.5795, risk_level: 'low' },
-    { name: 'Canada', code: 'CA', iso_code: 'CAN', latitude: 56.1304, longitude: -106.3468, risk_level: 'low' },
-    { name: 'United Kingdom', code: 'GB', iso_code: 'GBR', latitude: 55.3781, longitude: -3.4360, risk_level: 'low' },
-    { name: 'France', code: 'FR', iso_code: 'FRA', latitude: 46.2276, longitude: 2.2137, risk_level: 'low' },
-    { name: 'Germany', code: 'DE', iso_code: 'DEU', latitude: 51.1657, longitude: 10.4515, risk_level: 'low' },
-    { name: 'Italy', code: 'IT', iso_code: 'ITA', latitude: 41.8719, longitude: 12.5674, risk_level: 'low' },
-    { name: 'Spain', code: 'ES', iso_code: 'ESP', latitude: 40.4637, longitude: -3.7492, risk_level: 'low' },
-    { name: 'Japan', code: 'JP', iso_code: 'JPN', latitude: 36.2048, longitude: 138.2529, risk_level: 'low' },
-    { name: 'Australia', code: 'AU', iso_code: 'AUS', latitude: -25.2744, longitude: 133.7751, risk_level: 'low' },
-    { name: 'Brazil', code: 'BR', iso_code: 'BRA', latitude: -14.2350, longitude: -51.9253, risk_level: 'medium' },
-    { name: 'India', code: 'IN', iso_code: 'IND', latitude: 20.5937, longitude: 78.9629, risk_level: 'medium' },
-    { name: 'China', code: 'CN', iso_code: 'CHN', latitude: 35.8617, longitude: 104.1954, risk_level: 'medium' },
-    { name: 'Mexico', code: 'MX', iso_code: 'MEX', latitude: 23.6345, longitude: -102.5528, risk_level: 'medium' },
-    { name: 'Egypt', code: 'EG', iso_code: 'EGY', latitude: 26.0975, longitude: 31.2357, risk_level: 'medium' },
-    { name: 'Thailand', code: 'TH', iso_code: 'THA', latitude: 15.8700, longitude: 100.9925, risk_level: 'medium' },
-    { name: 'Turkey', code: 'TR', iso_code: 'TUR', latitude: 38.9637, longitude: 35.2433, risk_level: 'medium' },
-    { name: 'South Africa', code: 'ZA', iso_code: 'ZAF', latitude: -30.5595, longitude: 22.9375, risk_level: 'medium' },
-    { name: 'Russia', code: 'RU', iso_code: 'RUS', latitude: 61.5240, longitude: 105.3188, risk_level: 'high' },
-    { name: 'Iran', code: 'IR', iso_code: 'IRN', latitude: 32.4279, longitude: 53.6880, risk_level: 'high' },
-    { name: 'Venezuela', code: 'VE', iso_code: 'VEN', latitude: 6.4238, longitude: -66.5897, risk_level: 'high' },
-    { name: 'Syria', code: 'SY', iso_code: 'SYR', latitude: 34.8021, longitude: 38.9968, risk_level: 'critical' },
-    { name: 'Afghanistan', code: 'AF', iso_code: 'AFG', latitude: 33.9391, longitude: 67.7100, risk_level: 'critical' },
-    { name: 'Yemen', code: 'YE', iso_code: 'YEM', latitude: 15.5527, longitude: 48.5164, risk_level: 'critical' },
-    { name: 'Somalia', code: 'SO', iso_code: 'SOM', latitude: 5.1521, longitude: 46.1996, risk_level: 'critical' }
-];
+// Import comprehensive world countries data
+const countries = require('./world-countries');
 
 // Sample embassy contacts
 const embassyContacts = [

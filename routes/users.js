@@ -18,6 +18,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                    u.emergency_contact_name, u.emergency_contact_phone, u.emergency_contact_email,
                    u.passport_number, u.nationality, u.date_of_birth, u.is_verified,
                    u.sms_enabled, u.push_enabled, u.email_enabled, u.created_at, u.updated_at,
+                   u.pending_email,
                    c.name as country_name, c.code as country_code
             FROM users u
             LEFT JOIN countries c ON u.country_id = c.id
@@ -66,6 +67,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
             },
             dateOfBirth: user.date_of_birth,
             isVerified: user.is_verified,
+            pendingEmail: user.pending_email,
             preferences: {
                 smsEnabled: user.sms_enabled,
                 pushEnabled: user.push_enabled,
@@ -425,6 +427,123 @@ router.delete('/account', authenticateToken, async (req, res) => {
 
     } catch (error) {
         logger.error('Error deleting user account:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get all users (admin only)
+ * GET /api/users
+ */
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const { limit = 100, offset = 0, search, verified } = req.query;
+
+        let whereClause = 'WHERE 1=1';
+        const params = [];
+        let paramCount = 0;
+
+        if (search) {
+            paramCount++;
+            whereClause += ` AND (u.first_name ILIKE $${paramCount} OR u.last_name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
+            params.push(`%${search}%`);
+        }
+
+        if (verified !== undefined) {
+            paramCount++;
+            whereClause += ` AND u.is_verified = $${paramCount}`;
+            params.push(verified === 'true');
+        }
+
+        const result = await query(`
+            SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.country_id,
+                   u.is_verified, u.sms_enabled, u.push_enabled, u.email_enabled,
+                   u.created_at, u.updated_at,
+                   c.name as country_name, c.code as country_code,
+                   COUNT(tp.id) as travel_plans_count
+            FROM users u
+            LEFT JOIN countries c ON u.country_id = c.id
+            LEFT JOIN travel_plans tp ON u.id = tp.user_id AND tp.is_active = true
+            ${whereClause}
+            GROUP BY u.id, c.id
+            ORDER BY u.created_at DESC
+            LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+        `, [...params, parseInt(limit), parseInt(offset)]);
+
+        // Get total count
+        const countResult = await query(`
+            SELECT COUNT(*) as total
+            FROM users u
+            ${whereClause}
+        `, params);
+
+        const users = result.rows.map(row => ({
+            id: row.id,
+            email: row.email,
+            firstName: row.first_name,
+            lastName: row.last_name,
+            phone: row.phone,
+            country: row.country_id ? {
+                id: row.country_id,
+                name: row.country_name,
+                code: row.country_code
+            } : null,
+            isVerified: row.is_verified,
+            preferences: {
+                smsEnabled: row.sms_enabled,
+                pushEnabled: row.push_enabled,
+                emailEnabled: row.email_enabled
+            },
+            stats: {
+                activeTravelPlans: parseInt(row.travel_plans_count)
+            },
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        }));
+
+        res.json({
+            users,
+            pagination: {
+                total: parseInt(countResult.rows[0].total),
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                hasMore: parseInt(offset) + users.length < parseInt(countResult.rows[0].total)
+            }
+        });
+
+    } catch (error) {
+        logger.error('Error fetching users:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get user statistics
+ * GET /api/users/stats
+ */
+router.get('/stats', authenticateToken, async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT
+                COUNT(*) as total_users,
+                COUNT(*) FILTER (WHERE is_verified = true) as verified_users,
+                COUNT(*) FILTER (WHERE is_verified = false) as unverified_users,
+                COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as recent_users
+            FROM users
+        `);
+
+        const stats = result.rows[0];
+
+        res.json({
+            overview: stats,
+            byVerification: [
+                { status: 'verified', count: stats.verified_users },
+                { status: 'unverified', count: stats.unverified_users }
+            ]
+        });
+
+    } catch (error) {
+        logger.error('Error fetching user statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

@@ -113,6 +113,88 @@ router.post('/', [
 });
 
 /**
+ * Get all travel plans (admin view)
+ * GET /api/travel-plans/admin
+ */
+router.get('/admin', authenticateToken, async (req, res) => {
+    try {
+        const { status = 'active', limit = 50, offset = 0 } = req.query;
+
+        let whereClause = 'WHERE 1=1';
+        const params = [];
+        let paramCount = 0;
+
+        if (status === 'active') {
+            whereClause += ' AND tp.is_active = true';
+        } else if (status === 'inactive') {
+            whereClause += ' AND tp.is_active = false';
+        }
+
+        const result = await query(`
+            SELECT tp.id, tp.departure_date, tp.return_date, tp.purpose,
+                   tp.accommodation_address, tp.local_contact_name, tp.local_contact_phone,
+                   tp.is_active, tp.created_at, tp.updated_at,
+                   c.id as country_id, c.name as country_name, c.code as country_code,
+                   c.risk_level, c.latitude, c.longitude,
+                   u.first_name, u.last_name, u.email
+            FROM travel_plans tp
+            JOIN countries c ON tp.destination_country_id = c.id
+            JOIN users u ON tp.user_id = u.id
+            ${whereClause}
+            ORDER BY tp.departure_date DESC
+            LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+        `, [...params, parseInt(limit), parseInt(offset)]);
+
+        // Get total count
+        const countResult = await query(`
+            SELECT COUNT(*) as total
+            FROM travel_plans tp
+            ${whereClause.replace('WHERE 1=1', 'WHERE tp.is_active IS NOT NULL')}
+        `, params);
+
+        const travelPlans = result.rows.map(row => ({
+            id: row.id,
+            departureDate: row.departure_date,
+            returnDate: row.return_date,
+            purpose: row.purpose,
+            accommodationAddress: row.accommodation_address,
+            localContactName: row.local_contact_name,
+            localContactPhone: row.local_contact_phone,
+            isActive: row.is_active,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            destination: {
+                id: row.country_id,
+                name: row.country_name,
+                code: row.country_code,
+                riskLevel: row.risk_level,
+                latitude: parseFloat(row.latitude),
+                longitude: parseFloat(row.longitude)
+            },
+            user: {
+                firstName: row.first_name,
+                lastName: row.last_name,
+                email: row.email
+            }
+        }));
+
+        res.json({
+            travelPlans,
+            pagination: {
+                total: parseInt(countResult.rows[0].total),
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                hasMore: parseInt(offset) + travelPlans.length < parseInt(countResult.rows[0].total)
+            }
+        });
+
+    } catch (error) {
+        logger.error('Error fetching admin travel plans:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Get user's travel plans
  * GET /api/travel-plans
  */
@@ -185,6 +267,53 @@ router.get('/', authenticateToken, async (req, res) => {
 
     } catch (error) {
         logger.error('Error fetching travel plans:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Get travel plan statistics
+ * GET /api/travel-plans/stats
+ */
+router.get('/stats', authenticateToken, async (req, res) => {
+    try {
+        // Get stats for all travel plans (admin view) instead of just current user
+        const statsResult = await query(`
+            SELECT
+                COUNT(*) as total_plans,
+                COUNT(*) FILTER (WHERE is_active = true) as active_plans,
+                COUNT(*) FILTER (WHERE departure_date > CURRENT_DATE) as upcoming_plans,
+                COUNT(*) FILTER (WHERE departure_date <= CURRENT_DATE AND (return_date IS NULL OR return_date >= CURRENT_DATE)) as current_travels,
+                COUNT(*) FILTER (WHERE return_date < CURRENT_DATE) as completed_plans,
+                COUNT(DISTINCT destination_country_id) as countries_visited
+            FROM travel_plans
+        `);
+
+        const purposeResult = await query(`
+            SELECT purpose, COUNT(*) as count
+            FROM travel_plans
+            WHERE is_active = true
+            GROUP BY purpose
+            ORDER BY count DESC
+        `);
+
+        const riskResult = await query(`
+            SELECT c.risk_level, COUNT(*) as count
+            FROM travel_plans tp
+            JOIN countries c ON tp.destination_country_id = c.id
+            WHERE tp.is_active = true
+            GROUP BY c.risk_level
+            ORDER BY count DESC
+        `);
+
+        res.json({
+            overview: statsResult.rows[0],
+            byPurpose: purposeResult.rows,
+            byRiskLevel: riskResult.rows
+        });
+
+    } catch (error) {
+        logger.error('Error fetching travel statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -435,52 +564,6 @@ router.get('/upcoming', authenticateToken, async (req, res) => {
 
     } catch (error) {
         logger.error('Error fetching upcoming travel plans:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-/**
- * Get travel statistics for user
- * GET /api/travel-plans/stats
- */
-router.get('/stats', authenticateToken, async (req, res) => {
-    try {
-        const statsResult = await query(`
-            SELECT
-                COUNT(*) as total_plans,
-                COUNT(*) FILTER (WHERE is_active = true) as active_plans,
-                COUNT(*) FILTER (WHERE departure_date >= CURRENT_DATE) as future_plans,
-                COUNT(*) FILTER (WHERE departure_date < CURRENT_DATE AND (return_date IS NULL OR return_date >= CURRENT_DATE)) as current_travels,
-                COUNT(DISTINCT destination_country_id) as countries_visited
-            FROM travel_plans
-            WHERE user_id = $1
-        `, [req.user.id]);
-
-        const purposeResult = await query(`
-            SELECT purpose, COUNT(*) as count
-            FROM travel_plans
-            WHERE user_id = $1 AND is_active = true
-            GROUP BY purpose
-            ORDER BY count DESC
-        `, [req.user.id]);
-
-        const riskResult = await query(`
-            SELECT c.risk_level, COUNT(*) as count
-            FROM travel_plans tp
-            JOIN countries c ON tp.destination_country_id = c.id
-            WHERE tp.user_id = $1 AND tp.is_active = true
-            GROUP BY c.risk_level
-            ORDER BY count DESC
-        `, [req.user.id]);
-
-        res.json({
-            overview: statsResult.rows[0],
-            byPurpose: purposeResult.rows,
-            byRiskLevel: riskResult.rows
-        });
-
-    } catch (error) {
-        logger.error('Error fetching travel statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

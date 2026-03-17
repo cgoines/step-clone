@@ -16,53 +16,8 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      // Note: This endpoint might need to be implemented on the backend
-      // For now, we'll show demo data based on the seeded users
-      const demoUsers = [
-        {
-          id: '1',
-          email: 'demo@stepclone.com',
-          firstName: 'Demo',
-          lastName: 'User',
-          phone: '+1234567890',
-          isVerified: true,
-          createdAt: new Date().toISOString(),
-          preferences: {
-            smsEnabled: true,
-            pushEnabled: true,
-            emailEnabled: true
-          }
-        },
-        {
-          id: '2',
-          email: 'admin@stepclone.com',
-          firstName: 'Admin',
-          lastName: 'User',
-          phone: '+1987654321',
-          isVerified: true,
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          preferences: {
-            smsEnabled: true,
-            pushEnabled: false,
-            emailEnabled: true
-          }
-        },
-        {
-          id: '3',
-          email: 'test@example.com',
-          firstName: 'Test',
-          lastName: 'User',
-          phone: null,
-          isVerified: false,
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          preferences: {
-            smsEnabled: false,
-            pushEnabled: true,
-            emailEnabled: true
-          }
-        }
-      ]
-      setUsers(demoUsers)
+      const response = await apiService.getUsers({ limit: 1000 })
+      setUsers(response.data.users || [])
     } catch (error) {
       console.error('Error fetching users:', error)
       toast.error('Failed to load users')

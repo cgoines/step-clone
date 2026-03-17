@@ -32,6 +32,8 @@ CREATE TABLE users (
     nationality VARCHAR(100),
     date_of_birth DATE,
     is_verified BOOLEAN DEFAULT FALSE,
+    verification_token VARCHAR(255),
+    verification_token_expires TIMESTAMP,
     sms_enabled BOOLEAN DEFAULT TRUE,
     push_enabled BOOLEAN DEFAULT TRUE,
     email_enabled BOOLEAN DEFAULT TRUE,

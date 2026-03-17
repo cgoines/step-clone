@@ -20,14 +20,14 @@ import { apiService } from '../services/api'
 import toast from 'react-hot-toast'
 
 const STATUS_COLORS = {
-  planning: 'bg-blue-100 text-blue-800',
+  upcoming: 'bg-blue-100 text-blue-800',
   active: 'bg-green-100 text-green-800',
   completed: 'bg-gray-100 text-gray-800',
   cancelled: 'bg-red-100 text-red-800'
 }
 
 const STATUS_ICONS = {
-  planning: Clock,
+  upcoming: Clock,
   active: CheckCircle,
   completed: CheckCircle,
   cancelled: XCircle
@@ -56,7 +56,7 @@ export default function TravelPlansPage() {
   const fetchTravelPlans = async () => {
     try {
       setLoading(true)
-      const response = await apiService.getTravelPlans({ limit: 100 })
+      const response = await apiService.getAdminTravelPlans({ limit: 100 })
       const plans = response.data.travelPlans
       setTravelPlans(plans)
       // Fetch stats after travel plans are loaded for fallback calculation
@@ -81,7 +81,15 @@ export default function TravelPlansPage() {
   const fetchStats = async (plansData = null) => {
     try {
       const response = await apiService.getTravelPlansStats()
-      setStats(response.data)
+      const apiData = response.data
+      // Map API response to expected format
+      const mappedStats = {
+        total: parseInt(apiData.overview.total_plans) || 0,
+        active: parseInt(apiData.overview.current_travels) || 0,
+        upcoming: parseInt(apiData.overview.upcoming_plans) || 0,
+        completed: parseInt(apiData.overview.completed_plans) || 0
+      }
+      setStats(mappedStats)
     } catch (error) {
       console.error('Error fetching travel plans stats:', error)
       // Fallback: calculate stats from provided or loaded travel plans
@@ -105,25 +113,29 @@ export default function TravelPlansPage() {
     }
   }
 
-  const getCountryName = (countryId) => {
-    const country = countries.find(c => c.id === countryId)
-    return country ? country.name : 'Unknown Country'
-  }
 
   const getStatusFromDates = (startDate, endDate) => {
+    // Use UTC dates to match backend logic exactly
     const now = new Date()
     const start = new Date(startDate)
     const end = new Date(endDate)
 
-    if (now < start) return 'planning'
-    if (now >= start && now <= end) return 'active'
-    if (now > end) return 'completed'
-    return 'planning'
+    // Get UTC date strings (YYYY-MM-DD format) to avoid timezone issues
+    const nowDateStr = now.toISOString().split('T')[0]
+    const startDateStr = start.toISOString().split('T')[0]
+    const endDateStr = end.toISOString().split('T')[0]
+
+    // Match backend logic: departure_date <= CURRENT_DATE AND return_date >= CURRENT_DATE
+    if (startDateStr <= nowDateStr && endDateStr >= nowDateStr) return 'active'
+    if (endDateStr < nowDateStr) return 'completed'
+    if (startDateStr > nowDateStr) return 'upcoming'
+    return 'upcoming'
   }
 
   // Calculate stats from actual data when API stats fails
   const calculateStatsFromData = (plans) => {
     const now = new Date()
+    const nowDateStr = now.toISOString().split('T')[0]
 
     const stats = {
       total: plans.length,
@@ -133,10 +145,19 @@ export default function TravelPlansPage() {
     }
 
     plans.forEach(plan => {
-      const status = getStatusFromDates(plan.departureDate, plan.returnDate)
-      if (status === 'active') stats.active++
-      else if (status === 'planning') stats.upcoming++
-      else if (status === 'completed') stats.completed++
+      const start = new Date(plan.departureDate)
+      const end = new Date(plan.returnDate)
+      const startDateStr = start.toISOString().split('T')[0]
+      const endDateStr = end.toISOString().split('T')[0]
+
+      // Match backend logic: departure_date <= CURRENT_DATE AND return_date >= CURRENT_DATE
+      if (startDateStr <= nowDateStr && endDateStr >= nowDateStr) {
+        stats.active++
+      } else if (endDateStr < nowDateStr) {
+        stats.completed++
+      } else if (startDateStr > nowDateStr) {
+        stats.upcoming++
+      }
     })
 
     return stats
@@ -144,16 +165,15 @@ export default function TravelPlansPage() {
 
   const filteredTravelPlans = travelPlans.filter(plan => {
     const actualStatus = getStatusFromDates(plan.departureDate, plan.returnDate)
-    const countryName = getCountryName(plan.destination?.id)
+    const destinationName = plan.destination?.name || 'Unknown'
 
     const matchesSearch =
-      (plan.destination?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      destinationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (plan.purpose || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      countryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       plan.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = filterStatus === 'all' || actualStatus === filterStatus
-    const matchesCountry = filterCountry === 'all' || plan.destination?.id === filterCountry
+    const matchesCountry = filterCountry === 'all' || plan.destination?.name === filterCountry
 
     return matchesSearch && matchesStatus && matchesCountry
   })
@@ -255,7 +275,7 @@ export default function TravelPlansPage() {
               onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="all">All Status</option>
-              <option value="planning">Planning</option>
+              <option value="upcoming">Upcoming</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
             </select>
@@ -265,9 +285,9 @@ export default function TravelPlansPage() {
               onChange={(e) => setFilterCountry(e.target.value)}
             >
               <option value="all">All Countries</option>
-              {countries.map(country => (
-                <option key={country.id} value={country.id}>
-                  {country.name}
+              {Array.from(new Set(travelPlans.map(plan => plan.destination?.name).filter(Boolean))).sort().map(destinationName => (
+                <option key={destinationName} value={destinationName}>
+                  {destinationName}
                 </option>
               ))}
             </select>
@@ -306,7 +326,8 @@ export default function TravelPlansPage() {
                 {filteredTravelPlans.map((plan) => {
                   const actualStatus = getStatusFromDates(plan.departureDate, plan.returnDate)
                   const StatusIcon = STATUS_ICONS[actualStatus]
-                  const country = countries.find(c => c.id === plan.destination?.id)
+                  // Use destination info directly from travel plan (no need to lookup in countries array)
+                  const destination = plan.destination
 
                   return (
                     <tr key={plan.id} className="hover:bg-gray-50">
@@ -342,11 +363,11 @@ export default function TravelPlansPage() {
                           <Globe className="h-4 w-4 text-gray-400 mr-2" />
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {country?.name || 'Unknown'}
+                              {destination?.name || 'Unknown'}
                             </div>
-                            {country?.risk_level && (
+                            {destination?.riskLevel && (
                               <div className="text-xs text-gray-500">
-                                Risk: {country?.risk_level}
+                                Risk: {destination?.riskLevel}
                               </div>
                             )}
                           </div>
@@ -419,7 +440,8 @@ export default function TravelPlansPage() {
 }
 
 function TravelPlanDetailModal({ plan, countries, onClose }) {
-  const country = countries.find(c => c.id === plan.destination?.id)
+  // Use destination info directly from travel plan (no need to lookup in countries array)
+  const destination = plan.destination
   const actualStatus = getStatusFromDates(plan.departureDate, plan.returnDate)
   const StatusIcon = STATUS_ICONS[actualStatus]
 
@@ -449,14 +471,21 @@ function TravelPlanDetailModal({ plan, countries, onClose }) {
   }
 
   function getStatusFromDates(startDate, endDate) {
+    // Use UTC dates to match backend logic exactly
     const now = new Date()
     const start = new Date(startDate)
     const end = new Date(endDate)
 
-    if (now < start) return 'planning'
-    if (now >= start && now <= end) return 'active'
-    if (now > end) return 'completed'
-    return 'planning'
+    // Get UTC date strings (YYYY-MM-DD format) to avoid timezone issues
+    const nowDateStr = now.toISOString().split('T')[0]
+    const startDateStr = start.toISOString().split('T')[0]
+    const endDateStr = end.toISOString().split('T')[0]
+
+    // Match backend logic: departure_date <= CURRENT_DATE AND return_date >= CURRENT_DATE
+    if (startDateStr <= nowDateStr && endDateStr >= nowDateStr) return 'active'
+    if (endDateStr < nowDateStr) return 'completed'
+    if (startDateStr > nowDateStr) return 'upcoming'
+    return 'upcoming'
   }
 
   return (
@@ -518,14 +547,14 @@ function TravelPlanDetailModal({ plan, countries, onClose }) {
                 <div>
                   <span className="text-gray-500">Destination:</span>
                   <p className="font-medium flex items-center">
-                    {country?.flag && <span className="mr-2">{country.flag}</span>}
-                    {country?.name || 'Unknown Country'}
+                    {destination?.flag && <span className="mr-2">{destination.flag}</span>}
+                    {destination?.name || 'Unknown Country'}
                   </p>
                 </div>
                 <div>
                   <span className="text-gray-500">Risk Level:</span>
-                  <p className={`font-medium ${country?.risk_level === 'high' || country?.risk_level === 'critical' ? 'text-red-600' : 'text-green-600'}`}>
-                    {country?.risk_level || 'Unknown'}
+                  <p className={`font-medium ${destination?.riskLevel === 'high' || destination?.riskLevel === 'critical' ? 'text-red-600' : 'text-green-600'}`}>
+                    {destination?.riskLevel || 'Unknown'}
                   </p>
                 </div>
                 <div>

@@ -64,7 +64,8 @@ services:
       NODE_ENV: development
       PORT: 3000
       API_BASE_URL: http://localhost:9999
-      FRONTEND_URL: http://localhost:3001
+      FRONTEND_URL: http://localhost:3001,http://localhost:3002
+      USER_PORTAL_URL: http://localhost:3002
       LOG_LEVEL: info
 
       # Rate limiting (Increased for development)
@@ -77,23 +78,31 @@ services:
       REST_COUNTRIES_API_URL: https://restcountries.com/v3.1
 
       # Messaging services (add your credentials)
-      TWILIO_ACCOUNT_SID: AC459ca62b0d1504109a73cbcead474c1e
-      TWILIO_AUTH_TOKEN: b6601ef9bacc7afdc3b7b41cd2d8bb88
-      TWILIO_PHONE_NUMBER: +18889910722 
+      TWILIO_ACCOUNT_SID:
+      TWILIO_AUTH_TOKEN:
+      TWILIO_PHONE_NUMBER:
 
       # Firebase (add your config)
-      FIREBASE_PROJECT_ID: step-clone
-      FIREBASE_PRIVATE_KEY: |
-        -----BEGIN PRIVATE KEY-----
-        ffa985b01a6acf0e937567f716a4402614af6dd8
-        -----END PRIVATE KEY-----
-      FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@step-clone.iam.gserviceaccount.com
+      FIREBASE_PROJECT_ID:
+      FIREBASE_PRIVATE_KEY:
+      FIREBASE_CLIENT_EMAIL:
 
-      # Email (add your SMTP config)
+      # Email configuration
+      FROM_EMAIL: noreply@stepclone.com
+      # For development: emails are logged to console
+      # For production: uncomment and configure SMTP settings below
       # EMAIL_SERVICE: gmail
       # GMAIL_USER: your_email@gmail.com
       # GMAIL_APP_PASSWORD: your_app_password
-      # FROM_EMAIL: noreply@stepclone.com
+      # SMTP_HOST: smtp.gmail.com
+      # SMTP_PORT: 587
+      # SMTP_SECURE: false
+      # SMTP_USER: your_email@gmail.com
+      # SMTP_PASSWORD: your_app_password
+
+      # Email verification settings
+      VERIFICATION_TOKEN_EXPIRES_HOURS: 24
+      EMAIL_CHANGE_TOKEN_EXPIRES_HOURS: 24
     volumes:
       - ./logs:/app/logs
       - app_node_modules:/app/node_modules
@@ -111,7 +120,42 @@ services:
     networks:
       - step-clone-network
 
+  # Admin Dashboard Frontend
+  admin-frontend:
+    build:
+      context: ./frontend/admin-dashboard
+      dockerfile: Dockerfile
+    container_name: step-clone-admin-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_API_URL: http://localhost:9999/api
+    depends_on:
+      - app
+    networks:
+      - step-clone-network
+
+  # User Portal Frontend
+  user-portal:
+    build:
+      context: ./frontend/user-portal
+      dockerfile: Dockerfile
+    container_name: step-clone-user-portal
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      VITE_API_URL: http://localhost:9999/api
+    depends_on:
+      - app
+    networks:
+      - step-clone-network
+
   # Database migration and seeding service
+  # Note: Email verification columns added to users table:
+  # - verification_token, verification_token_expires (email registration)
+  # - pending_email, email_change_token, email_change_token_expires (email changes)
   db-setup:
     build:
       context: .

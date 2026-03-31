@@ -28,6 +28,37 @@ A full-featured clone of the U.S. State Department's Smart Traveler Enrollment P
 
 ## Quick Start
 
+### 🐳 Docker Setup (Recommended)
+
+The easiest way to run STEP Clone is using Docker:
+
+```bash
+# Start all services (API, Admin Dashboard, User Portal, Database)
+npm run docker:start
+
+# View access URLs and demo credentials
+npm run docker:status
+
+# View logs
+npm run docker:logs
+
+# Stop all services
+npm run docker:stop
+```
+
+**Access URLs:**
+- User Portal: http://localhost:3002
+- Admin Dashboard: http://localhost:3001
+- API: http://localhost:9999
+
+**Demo Credentials:**
+- User: `demo@stepclone.com` / `demo123456`
+- Admin: `admin@stepclone.com` / `admin123456`
+
+📋 See [DOCKER-SETUP.md](DOCKER-SETUP.md) for detailed Docker documentation.
+
+### 🔧 Manual Setup
+
 ### Prerequisites
 
 - Node.js 16+ and npm

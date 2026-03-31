@@ -78,14 +78,17 @@ services:
       REST_COUNTRIES_API_URL: https://restcountries.com/v3.1
 
       # Messaging services (add your credentials)
-      TWILIO_ACCOUNT_SID:
-      TWILIO_AUTH_TOKEN:
-      TWILIO_PHONE_NUMBER:
+      TWILIO_ACCOUNT_SID: AC459ca62b0d1504109a73cbcead474c1e
+      TWILIO_AUTH_TOKEN: b6601ef9bacc7afdc3b7b41cd2d8bb88
+      TWILIO_PHONE_NUMBER: +18889910722 
 
       # Firebase (add your config)
-      FIREBASE_PROJECT_ID:
-      FIREBASE_PRIVATE_KEY:
-      FIREBASE_CLIENT_EMAIL:
+      FIREBASE_PROJECT_ID: step-clone
+      FIREBASE_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        ffa985b01a6acf0e937567f716a4402614af6dd8
+        -----END PRIVATE KEY-----
+      FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@step-clone.iam.gserviceaccount.com
 
       # Email configuration
       FROM_EMAIL: noreply@stepclone.com
@@ -131,8 +134,13 @@ services:
       - "3001:3001"
     environment:
       VITE_API_URL: http://localhost:9999/api
+      VITE_API_PROXY_TARGET: http://app:3000
+    volumes:
+      - ./frontend/admin-dashboard/src:/app/src:ro
+      - ./frontend/admin-dashboard/public:/app/public:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - step-clone-network
 
@@ -147,8 +155,13 @@ services:
       - "3002:3002"
     environment:
       VITE_API_URL: http://localhost:9999/api
+      VITE_API_PROXY_TARGET: http://app:3000
+    volumes:
+      - ./frontend/user-portal/src:/app/src:ro
+      - ./frontend/user-portal/public:/app/public:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - step-clone-network
 

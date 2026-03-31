@@ -85,6 +85,14 @@ class ApiService {
     return this.post('/auth/verify-email-change', { token })
   }
 
+  async forgotPassword(email) {
+    return this.post('/auth/forgot-password', { email })
+  }
+
+  async resetPassword(token, password) {
+    return this.post('/auth/reset-password', { token, password })
+  }
+
   // User endpoints
   async getUserProfile() {
     return this.get('/users/profile')

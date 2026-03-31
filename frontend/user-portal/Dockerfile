@@ -11,11 +11,14 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodeuser -u 1001
+RUN chown -R nodeuser:nodejs /app
+USER nodeuser
 
 # Expose port 3002
 EXPOSE 3002
 
-# Start the development server (for dev) or serve built files (for prod)
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3002"]
+# Start the development server with hot reloading
+CMD ["npm", "run", "dev"]

@@ -26,6 +26,7 @@ import {
   Line
 } from 'recharts'
 import { apiService } from '../services/api'
+import RiskLevelMap from '../components/RiskLevelMap'
 import toast from 'react-hot-toast'
 
 const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6']
@@ -39,6 +40,8 @@ export default function Dashboard() {
     notifications: { total: 0, sent: 0, failed: 0 }
   })
   const [recentAlerts, setRecentAlerts] = useState([])
+  const [countries, setCountries] = useState([])
+  const [selectedCountry, setSelectedCountry] = useState(null)
   const [systemHealth, setSystemHealth] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -113,6 +116,7 @@ export default function Dashboard() {
       }))
 
       setRecentAlerts(alerts.slice(0, 5))
+      setCountries(countries)
       setSystemHealth(healthRes.data)
 
     } catch (error) {
@@ -121,6 +125,11 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCountryClick = (country) => {
+    setSelectedCountry(country)
+    // Could add additional actions like showing country details or navigation
   }
 
   if (loading) {
@@ -206,6 +215,45 @@ export default function Dashboard() {
           color="purple"
           link="/travel-plans"
         />
+      </div>
+
+      {/* Risk Level World Map */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Global Risk Assessment</h3>
+          <Link to="/countries" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+            View countries
+          </Link>
+        </div>
+        <RiskLevelMap
+          countries={countries}
+          onCountryClick={handleCountryClick}
+          selectedCountryId={selectedCountry?.id}
+        />
+        {selectedCountry && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">{selectedCountry.name}</h4>
+                <p className="text-sm text-gray-600 capitalize">
+                  Risk Level: <span className={`font-medium ${
+                    selectedCountry.risk_level === 'low' ? 'text-green-600' :
+                    selectedCountry.risk_level === 'medium' ? 'text-yellow-600' :
+                    selectedCountry.risk_level === 'high' ? 'text-red-600' :
+                    selectedCountry.risk_level === 'critical' ? 'text-red-700' :
+                    'text-gray-600'
+                  }`}>{selectedCountry.risk_level}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCountry(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Charts Grid */}

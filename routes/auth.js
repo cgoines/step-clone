@@ -793,4 +793,234 @@ The STEP Clone Team
     }
 });
 
+/**
+ * Request password reset
+ * POST /api/auth/forgot-password
+ */
+router.post('/forgot-password', [
+    body('email').isEmail().normalizeEmail()
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: errors.array()
+            });
+        }
+
+        const { email } = req.body;
+
+        // Find user by email
+        const userResult = await query(
+            'SELECT id, email, first_name, last_name FROM users WHERE email = $1',
+            [email]
+        );
+
+        // Always return success to avoid email enumeration
+        if (userResult.rows.length === 0) {
+            logger.info(`Password reset requested for non-existent email: ${email}`);
+            return res.json({ message: 'If an account with that email exists, we have sent a password reset link.' });
+        }
+
+        const user = userResult.rows[0];
+
+        // Generate password reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+        // Store the reset token in database
+        await query(`
+            UPDATE users
+            SET password_reset_token = $1, password_reset_token_expires = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+        `, [resetTokenHash, resetTokenExpires, user.id]);
+
+        // Create reset URL
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3002'}/reset-password?token=${resetToken}`;
+
+        // Email content
+        const resetEmailText = `
+Hello ${user.first_name},
+
+You requested a password reset for your STEP Clone account.
+
+Click the link below to reset your password:
+${resetUrl}
+
+This link will expire in 1 hour.
+
+If you didn't request this password reset, please ignore this email.
+
+Best regards,
+The STEP Clone Team
+        `;
+
+        const resetEmailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Password Reset - STEP Clone</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
+        .content { padding: 20px 0; }
+        .button {
+            display: inline-block;
+            background-color: #dc2626;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Reset Your Password</h1>
+        </div>
+        <div class="content">
+            <p>Hello ${user.first_name},</p>
+            <p>You requested a password reset for your STEP Clone account.</p>
+            <p style="text-align: center;">
+                <a href="${resetUrl}" class="button">Reset Password</a>
+            </p>
+            <p>This link will expire in 1 hour.</p>
+            <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #1e40af;">${resetUrl}</p>
+            <p>If you didn't request this password reset, please ignore this email.</p>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>The STEP Clone Team</p>
+        </div>
+    </div>
+</body>
+</html>
+        `;
+
+        // Send password reset email
+        await sendEmail(user.email, 'Reset Your Password - STEP Clone', resetEmailText, resetEmailHtml);
+
+        logger.info(`Password reset email sent to: ${email}`);
+        res.json({ message: 'If an account with that email exists, we have sent a password reset link.' });
+
+    } catch (error) {
+        logger.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Reset password with token
+ * POST /api/auth/reset-password
+ */
+router.post('/reset-password', [
+    body('token').notEmpty(),
+    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: errors.array()
+            });
+        }
+
+        const { token, password } = req.body;
+
+        // Hash the token to match what's stored in database
+        const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Find user with valid reset token
+        const userResult = await query(`
+            SELECT id, email, first_name, password_reset_token, password_reset_token_expires
+            FROM users
+            WHERE password_reset_token = $1 AND password_reset_token_expires > CURRENT_TIMESTAMP
+        `, [resetTokenHash]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+
+        const user = userResult.rows[0];
+
+        // Hash new password
+        const saltRounds = 12;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // Update password and clear reset token
+        await query(`
+            UPDATE users
+            SET password_hash = $1,
+                password_reset_token = NULL,
+                password_reset_token_expires = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+        `, [hashedPassword, user.id]);
+
+        // Send confirmation email
+        const confirmationEmailText = `
+Hello ${user.first_name},
+
+Your password has been successfully reset for your STEP Clone account.
+
+If you didn't make this change, please contact our support team immediately.
+
+Best regards,
+The STEP Clone Team
+        `;
+
+        const confirmationEmailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Password Reset Successful - STEP Clone</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
+        .content { padding: 20px 0; }
+        .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Password Reset Successful</h1>
+        </div>
+        <div class="content">
+            <p>Hello ${user.first_name},</p>
+            <p>Your password has been successfully reset for your STEP Clone account.</p>
+            <p>If you didn't make this change, please contact our support team immediately.</p>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>The STEP Clone Team</p>
+        </div>
+    </div>
+</body>
+</html>
+        `;
+
+        // Send confirmation email (don't wait for it)
+        sendEmail(user.email, 'Password Reset Successful - STEP Clone', confirmationEmailText, confirmationEmailHtml).catch(err =>
+            logger.error('Failed to send password reset confirmation:', err)
+        );
+
+        logger.info(`Password reset successful for user: ${user.email}`);
+        res.json({ message: 'Password has been reset successfully' });
+
+    } catch (error) {
+        logger.error('Reset password error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

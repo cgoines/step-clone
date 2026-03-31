@@ -14,6 +14,7 @@ import {
   CheckCircle
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import TravelPlansMap from '../components/TravelPlansMap'
 import toast from 'react-hot-toast'
 
 const STATUS_COLORS = {
@@ -33,6 +34,8 @@ export default function TravelPlansPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [countries, setCountries] = useState([])
+  const [selectedCountry, setSelectedCountry] = useState(null)
 
   useEffect(() => {
     fetchTravelPlans()
@@ -41,8 +44,17 @@ export default function TravelPlansPage() {
   const fetchTravelPlans = async () => {
     try {
       setLoading(true)
-      const response = await apiService.getTravelPlans({ limit: 100 })
-      setTravelPlans(response.data.travelPlans || [])
+
+      // Fetch travel plans
+      const travelPlansResponse = await apiService.getTravelPlans({ limit: 100 })
+      const travelPlansData = travelPlansResponse.data.travelPlans || []
+
+      // Fetch countries for world map
+      const countriesResponse = await apiService.getCountries({ limit: 300 })
+      const countriesData = countriesResponse.data.countries || []
+
+      setTravelPlans(travelPlansData)
+      setCountries(countriesData)
     } catch (error) {
       console.error('Error fetching travel plans:', error)
       toast.error('Failed to load travel plans')
@@ -62,6 +74,10 @@ export default function TravelPlansPage() {
       console.error('Error deleting travel plan:', error)
       toast.error('Failed to delete travel plan')
     }
+  }
+
+  const handleCountryClick = (country) => {
+    setSelectedCountry(country)
   }
 
   const getStatusFromDates = (startDate, endDate) => {
@@ -110,6 +126,46 @@ export default function TravelPlansPage() {
           <Plus className="h-4 w-4" />
           <span>New Travel Plan</span>
         </Link>
+      </div>
+
+      {/* Travel Plans World Map */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Your Travel Destinations</h3>
+          <div className="text-sm text-gray-600">
+            Click a country to see your travel plans for that region
+          </div>
+        </div>
+        <TravelPlansMap
+          travelPlans={travelPlans}
+          countries={countries}
+          onCountryClick={handleCountryClick}
+          selectedCountryId={selectedCountry?.id}
+        />
+        {selectedCountry && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">{selectedCountry.name}</h4>
+                <p className="text-sm text-gray-600">
+                  Travel Plans: <span className="font-medium text-blue-600">
+                    {travelPlans.filter(plan => {
+                      const status = getStatusFromDates(plan.departureDate, plan.returnDate)
+                      return (status === 'upcoming' || status === 'active') &&
+                             plan.destination?.code === selectedCountry.code
+                    }).length}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCountry(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search and Filter */}

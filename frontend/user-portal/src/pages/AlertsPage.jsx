@@ -12,6 +12,7 @@ import {
   Zap
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import WorldMap from '../components/WorldMap'
 import toast from 'react-hot-toast'
 
 const SEVERITY_COLORS = {
@@ -52,6 +53,8 @@ export default function AlertsPage() {
   const [filterSeverity, setFilterSeverity] = useState('all')
   const [filterType, setFilterType] = useState('all')
   const [selectedAlert, setSelectedAlert] = useState(null)
+  const [countries, setCountries] = useState([])
+  const [selectedAlertCountry, setSelectedAlertCountry] = useState(null)
 
   useEffect(() => {
     fetchAlerts()
@@ -60,8 +63,17 @@ export default function AlertsPage() {
   const fetchAlerts = async () => {
     try {
       setLoading(true)
-      const response = await apiService.getAlerts({ limit: 100 })
-      setAlerts(response.data.alerts || [])
+
+      // Fetch alerts
+      const alertsResponse = await apiService.getAlerts({ limit: 1000 })
+      const alertsData = alertsResponse.data.alerts || []
+
+      // Fetch countries for world map
+      const countriesResponse = await apiService.getCountries({ limit: 300 })
+      const countriesData = countriesResponse.data.countries || []
+
+      setAlerts(alertsData)
+      setCountries(countriesData)
     } catch (error) {
       console.error('Error fetching alerts:', error)
       toast.error('Failed to load alerts')
@@ -82,6 +94,10 @@ export default function AlertsPage() {
     return matchesSearch && matchesSeverity && matchesType && alert.isActive
   })
 
+  const handleAlertCountryClick = (country) => {
+    setSelectedAlertCountry(country)
+  }
+
   const getUniqueAlertTypes = () => {
     const types = alerts.map(alert => alert.alertType).filter(Boolean)
     return [...new Set(types)]
@@ -99,6 +115,42 @@ export default function AlertsPage() {
         <p className="text-gray-600 mt-1">
           Stay informed about safety conditions in your travel destinations
         </p>
+      </div>
+
+      {/* Global Travel Alerts World Map */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Global Travel Alerts</h3>
+          <div className="text-sm text-gray-600">
+            Click a country to see alerts for that region
+          </div>
+        </div>
+        <WorldMap
+          alerts={alerts}
+          countries={countries}
+          onCountryClick={handleAlertCountryClick}
+          selectedCountryId={selectedAlertCountry?.id}
+        />
+        {selectedAlertCountry && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">{selectedAlertCountry.name}</h4>
+                <p className="text-sm text-gray-600">
+                  Active Alerts: <span className="font-medium text-red-600">
+                    {alerts.filter(alert => alert.country?.code === selectedAlertCountry.code).length}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedAlertCountry(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search and Filter */}

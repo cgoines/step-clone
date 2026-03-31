@@ -12,6 +12,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
+import RiskLevelMap from '../components/RiskLevelMap'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -21,6 +22,8 @@ export default function DashboardPage() {
   })
   const [recentTravelPlans, setRecentTravelPlans] = useState([])
   const [recentAlerts, setRecentAlerts] = useState([])
+  const [countries, setCountries] = useState([])
+  const [selectedCountry, setSelectedCountry] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,8 +53,8 @@ export default function DashboardPage() {
         }).length
       }
 
-      // Fetch alerts
-      const alertsRes = await apiService.getAlerts({ limit: 10 })
+      // Fetch alerts for display and map
+      const alertsRes = await apiService.getAlerts({ limit: 1000 })
       const alerts = alertsRes.data.alerts || []
       const alertStats = {
         total: alerts.length,
@@ -59,9 +62,14 @@ export default function DashboardPage() {
         critical: alerts.filter(a => a.severity === 'critical').length
       }
 
+      // Fetch countries for risk map
+      const countriesRes = await apiService.getCountries({ limit: 300 })
+      const countriesData = countriesRes.data.countries || []
+
       setStats({ travelPlans: travelStats, alerts: alertStats })
       setRecentTravelPlans(travelPlans.slice(0, 3))
       setRecentAlerts(alerts.slice(0, 3))
+      setCountries(countriesData)
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -97,6 +105,10 @@ export default function DashboardPage() {
       completed: 'bg-gray-100 text-gray-800'
     }
     return colors[status] || colors.upcoming
+  }
+
+  const handleCountryClick = (country) => {
+    setSelectedCountry(country)
   }
 
   if (loading) {
@@ -152,6 +164,45 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Global Risk Assessment World Map */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Global Risk Assessment</h3>
+          <Link to="/alerts" className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center">
+            View alerts <ArrowRight className="h-4 w-4 ml-1" />
+          </Link>
+        </div>
+        <RiskLevelMap
+          countries={countries}
+          onCountryClick={handleCountryClick}
+          selectedCountryId={selectedCountry?.id}
+        />
+        {selectedCountry && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">{selectedCountry.name}</h4>
+                <p className="text-sm text-gray-600 capitalize">
+                  Risk Level: <span className={`font-medium ${
+                    selectedCountry.risk_level === 'low' ? 'text-green-600' :
+                    selectedCountry.risk_level === 'medium' ? 'text-yellow-600' :
+                    selectedCountry.risk_level === 'high' ? 'text-red-600' :
+                    selectedCountry.risk_level === 'critical' ? 'text-red-700' :
+                    'text-gray-600'
+                  }`}>{selectedCountry.risk_level}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCountry(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

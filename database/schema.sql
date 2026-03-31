@@ -34,6 +34,8 @@ CREATE TABLE users (
     is_verified BOOLEAN DEFAULT FALSE,
     verification_token VARCHAR(255),
     verification_token_expires TIMESTAMP,
+    password_reset_token VARCHAR(255),
+    password_reset_token_expires TIMESTAMP,
     sms_enabled BOOLEAN DEFAULT TRUE,
     push_enabled BOOLEAN DEFAULT TRUE,
     email_enabled BOOLEAN DEFAULT TRUE,

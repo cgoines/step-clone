@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import VerifyEmailChangePage from './pages/VerifyEmailChangePage'
 import DashboardPage from './pages/DashboardPage'
@@ -52,6 +54,16 @@ function AppRoutes() {
       <Route path="/register" element={
         <PublicRoute>
           <RegisterPage />
+        </PublicRoute>
+      } />
+      <Route path="/forgot-password" element={
+        <PublicRoute>
+          <ForgotPasswordPage />
+        </PublicRoute>
+      } />
+      <Route path="/reset-password" element={
+        <PublicRoute>
+          <ResetPasswordPage />
         </PublicRoute>
       } />
       <Route path="/verify-email" element={<VerifyEmailPage />} />

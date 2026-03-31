@@ -31,11 +31,11 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 flex z-40 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+        <div className="fixed inset-0 bg-primary-800 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-primary-700">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
               className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
@@ -56,17 +56,17 @@ export default function Layout() {
       {/* Main content */}
       <div className="lg:pl-64 flex flex-col min-h-screen">
         {/* Top bar */}
-        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-gray-200">
+        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-primary-200">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
                 <button
-                  className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden"
+                  className="px-4 border-r border-primary-200 text-primary-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden"
                   onClick={() => setSidebarOpen(true)}
                 >
                   <Menu className="h-6 w-6" />
                 </button>
-                <h1 className="ml-4 text-lg font-semibold text-gray-900 lg:ml-0">
+                <h1 className="ml-4 text-lg font-semibold text-primary-700 lg:ml-0">
                   STEP Clone
                 </h1>
               </div>
@@ -84,14 +84,14 @@ export default function Layout() {
 
                 <div className="flex items-center space-x-4">
                   <div className="text-sm">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-primary-800">
                       {user?.firstName} {user?.lastName}
                     </div>
-                    <div className="text-gray-500">{user?.email}</div>
+                    <div className="text-primary-500">{user?.email}</div>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="text-gray-400 hover:text-gray-600 p-2"
+                    className="text-primary-500 hover:text-primary-700 p-2"
                     title="Sign out"
                   >
                     <LogOut className="h-5 w-5" />
@@ -114,9 +114,9 @@ export default function Layout() {
 
   function Sidebar() {
     return (
-      <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 overflow-y-auto">
+      <div className="flex flex-col flex-grow bg-primary-700 pt-5 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4">
-          <h1 className="text-xl font-bold text-primary-600">STEP Clone</h1>
+          <h1 className="text-xl font-bold text-white">STEP Clone</h1>
         </div>
         <div className="mt-8 flex-grow flex flex-col">
           <nav className="flex-1 px-2 space-y-1">
@@ -128,13 +128,13 @@ export default function Layout() {
                   to={item.href}
                   className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive
-                      ? 'bg-primary-100 text-primary-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-white text-primary-700'
+                      : 'text-primary-100 hover:bg-primary-600 hover:text-white'
                   }`}
                 >
                   <item.icon
                     className={`mr-3 flex-shrink-0 h-5 w-5 ${
-                      isActive ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'
+                      isActive ? 'text-primary-600' : 'text-primary-200 group-hover:text-white'
                     }`}
                   />
                   {item.name}

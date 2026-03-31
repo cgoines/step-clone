@@ -36,12 +36,12 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-white">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 flex z-40 md:hidden">
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+          <div className="fixed inset-0 bg-primary-800 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-primary-700">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
                 type="button"
@@ -66,10 +66,10 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
         {/* Top bar */}
-        <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
+        <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow border-b border-primary-200">
           <button
             type="button"
-            className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 md:hidden"
+            className="px-4 border-r border-primary-200 text-primary-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 md:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
@@ -77,9 +77,9 @@ export default function Layout({ children }) {
           <div className="flex-1 px-4 flex justify-between">
             <div className="flex-1 flex">
               <div className="w-full flex md:ml-0">
-                <div className="relative w-full text-gray-400 focus-within:text-gray-600">
+                <div className="relative w-full text-primary-400 focus-within:text-primary-600">
                   <div className="flex items-center h-16">
-                    <h1 className="text-lg font-semibold text-gray-900">
+                    <h1 className="text-lg font-semibold text-primary-700">
                       STEP Clone Admin
                     </h1>
                   </div>
@@ -88,12 +88,12 @@ export default function Layout({ children }) {
             </div>
             <div className="ml-4 flex items-center md:ml-6">
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-primary-700">
                   Welcome, {user?.firstName || 'Admin'}
                 </span>
                 <button
                   onClick={logout}
-                  className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-md"
+                  className="p-2 text-primary-500 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-md"
                   title="Logout"
                 >
                   <LogOut className="h-5 w-5" />
@@ -118,11 +118,11 @@ export default function Layout({ children }) {
 
 function SidebarContent({ navigation, isActivePath }) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-primary-700">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4">
-          <Shield className="h-8 w-8 text-primary-600" />
-          <span className="ml-2 text-xl font-bold text-gray-900">STEP Clone</span>
+          <Shield className="h-8 w-8 text-white" />
+          <span className="ml-2 text-xl font-bold text-white">STEP Clone</span>
         </div>
         <nav className="mt-5 flex-1 px-2 space-y-1">
           {navigation.map((item) => {
@@ -133,13 +133,13 @@ function SidebarContent({ navigation, isActivePath }) {
                 to={item.href}
                 className={`${
                   isActive
-                    ? 'bg-primary-100 border-r-4 border-primary-500 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-white text-primary-700'
+                    : 'text-primary-100 hover:bg-primary-600 hover:text-white'
                 } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
               >
                 <item.icon
                   className={`${
-                    isActive ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'
+                    isActive ? 'text-primary-600' : 'text-primary-200 group-hover:text-white'
                   } mr-3 flex-shrink-0 h-5 w-5`}
                 />
                 {item.name}

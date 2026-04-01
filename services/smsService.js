@@ -1,11 +1,17 @@
 const twilio = require('twilio');
 const logger = require('../utils/logger');
 
-// Initialize Twilio client
-const client = twilio(
-    process.env.TWILIO_ACCOUNT_SID,
-    process.env.TWILIO_AUTH_TOKEN
-);
+// Initialize Twilio client conditionally
+let client = null;
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+if (accountSid && authToken && accountSid.startsWith('AC')) {
+    client = twilio(accountSid, authToken);
+    logger.info('Twilio client initialized');
+} else {
+    logger.warn('Twilio not configured - SMS functionality will be mocked');
+}
 
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
@@ -26,6 +32,24 @@ const sendSMS = async (to, message) => {
         const phoneNumber = to.startsWith('+') ? to : `+1${to}`;
 
         logger.info(`Sending SMS to ${phoneNumber}`);
+
+        // Mock SMS if Twilio not configured
+        if (!client) {
+            const mockResult = {
+                sid: `mock_${Date.now()}`,
+                status: 'sent',
+                to: phoneNumber,
+                from: TWILIO_PHONE_NUMBER || '+15551234567'
+            };
+
+            logger.info(`SMS sent successfully (mocked)`, {
+                sid: mockResult.sid,
+                to: phoneNumber,
+                status: mockResult.status
+            });
+
+            return mockResult;
+        }
 
         const result = await client.messages.create({
             body: message,
@@ -132,6 +156,19 @@ const formatPhoneNumber = (phoneNumber) => {
  */
 const getSMSStatus = async (messageSid) => {
     try {
+        // Mock status if Twilio not configured
+        if (!client) {
+            return {
+                sid: messageSid,
+                status: 'delivered',
+                errorCode: null,
+                errorMessage: null,
+                dateCreated: new Date(),
+                dateSent: new Date(),
+                dateUpdated: new Date()
+            };
+        }
+
         const message = await client.messages(messageSid).fetch();
         return {
             sid: message.sid,

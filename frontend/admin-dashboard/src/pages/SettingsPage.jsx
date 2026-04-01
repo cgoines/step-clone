@@ -66,8 +66,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSystemHealth()
-    // In a real app, you would fetch current settings from the API
-    // fetchSettings()
+    fetchSettings()
   }, [])
 
   const fetchSystemHealth = async () => {
@@ -80,15 +79,20 @@ export default function SettingsPage() {
     }
   }
 
+  const fetchSettings = async () => {
+    try {
+      const response = await apiService.getSettings()
+      setSettings(response.data)
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+      toast.error('Failed to load settings')
+    }
+  }
+
   const handleSaveSettings = async () => {
     setLoading(true)
     try {
-      // In a real app, you would send these settings to the API
-      // await apiService.updateSettings(settings)
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
+      await apiService.updateSettings(settings)
       toast.success('Settings saved successfully')
     } catch (error) {
       console.error('Error saving settings:', error)
@@ -582,6 +586,43 @@ function SecuritySettings({ settings, onChange }) {
 }
 
 function SystemSettings({ systemHealth, onRefresh }) {
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cacheLoading, setCacheLoading] = useState(false)
+
+  const handleDatabaseCleanup = async () => {
+    if (!confirm('Are you sure you want to run database cleanup? This will permanently remove expired alerts and old notifications.')) {
+      return
+    }
+
+    setCleanupLoading(true)
+    try {
+      const response = await apiService.runDatabaseCleanup()
+      const results = response.data.results
+      toast.success(
+        `Database cleanup completed! Removed ${results.totalCleaned} records: ` +
+        `${results.expiredAlerts} expired alerts, ${results.oldNotifications} old notifications, ` +
+        `${results.orphanedRecords} orphaned records.`
+      )
+    } catch (error) {
+      console.error('Error running database cleanup:', error)
+      toast.error('Database cleanup failed')
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
+  const handleClearCache = async () => {
+    setCacheLoading(true)
+    try {
+      await apiService.clearCache()
+      toast.success('Cache cleared successfully')
+    } catch (error) {
+      console.error('Error clearing cache:', error)
+      toast.error('Cache clearing failed')
+    } finally {
+      setCacheLoading(false)
+    }
+  }
   return (
     <div className="space-y-6">
       {/* System Health */}
@@ -715,8 +756,17 @@ function SystemSettings({ systemHealth, onRefresh }) {
                 <p className="text-sm text-yellow-700">Remove expired alerts and old notifications</p>
               </div>
             </div>
-            <button className="btn-secondary">
-              Run Cleanup
+            <button
+              onClick={handleDatabaseCleanup}
+              disabled={cleanupLoading}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              {cleanupLoading ? (
+                <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              <span>{cleanupLoading ? 'Cleaning...' : 'Run Cleanup'}</span>
             </button>
           </div>
 
@@ -728,8 +778,17 @@ function SystemSettings({ systemHealth, onRefresh }) {
                 <p className="text-sm text-blue-700">Clear and rebuild application cache</p>
               </div>
             </div>
-            <button className="btn-secondary">
-              Clear Cache
+            <button
+              onClick={handleClearCache}
+              disabled={cacheLoading}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              {cacheLoading ? (
+                <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span>{cacheLoading ? 'Clearing...' : 'Clear Cache'}</span>
             </button>
           </div>
         </div>

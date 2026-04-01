@@ -197,6 +197,27 @@ class ApiService {
     return this.get('/users/devices')
   }
 
+  // Settings endpoints
+  async getSettings() {
+    return this.get('/settings')
+  }
+
+  async updateSettings(settings) {
+    return this.put('/settings', settings)
+  }
+
+  async resetSettings(category = null) {
+    return this.post('/settings/reset', { category })
+  }
+
+  async runDatabaseCleanup() {
+    return this.post('/settings/cleanup')
+  }
+
+  async clearCache() {
+    return this.post('/settings/clear-cache')
+  }
+
   // Health check
   async getHealth() {
     return this.client.get('/health', { baseURL: 'http://localhost:9999' })

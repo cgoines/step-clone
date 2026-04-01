@@ -15,6 +15,7 @@ const travelPlanRoutes = require('./routes/travelPlans');
 const alertRoutes = require('./routes/alerts');
 const notificationRoutes = require('./routes/notifications');
 const countryRoutes = require('./routes/countries');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -84,6 +85,7 @@ app.use('/api/travel-plans', travelPlanRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/countries', countryRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Basic info endpoint
 app.get('/api', (req, res) => {
@@ -97,7 +99,8 @@ app.get('/api', (req, res) => {
             travelPlans: '/api/travel-plans',
             alerts: '/api/alerts',
             notifications: '/api/notifications',
-            countries: '/api/countries'
+            countries: '/api/countries',
+            settings: '/api/settings'
         }
     });
 });

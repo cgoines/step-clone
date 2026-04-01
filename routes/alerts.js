@@ -128,8 +128,8 @@ router.get('/stats', optionalAuth, async (req, res) => {
             SELECT
                 COUNT(*) as total_alerts,
                 COUNT(*) FILTER (WHERE is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)) as active_alerts,
-                COUNT(*) FILTER (WHERE severity = 'emergency') as emergency_alerts,
-                COUNT(*) FILTER (WHERE severity = 'critical') as critical_alerts
+                COUNT(*) FILTER (WHERE severity = 'emergency' AND is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)) as emergency_alerts,
+                COUNT(*) FILTER (WHERE severity = 'critical' AND is_active = true AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)) as critical_alerts
             FROM alerts
         `);
 

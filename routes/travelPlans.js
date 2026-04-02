@@ -15,10 +15,11 @@ router.post('/', [
     body('destinationCountryId').isInt().withMessage('Valid destination country ID required'),
     body('departureDate').isDate().withMessage('Valid departure date required'),
     body('returnDate').optional().isDate(),
-    body('purpose').optional().isIn(['business', 'tourism', 'study', 'family', 'other']),
+    body('purpose').optional().isIn(['business', 'tourism', 'study', 'family', 'other', 'work']),
     body('accommodationAddress').optional().trim(),
     body('localContactName').optional().trim(),
-    body('localContactPhone').optional().trim()
+    body('localContactPhone').optional().trim(),
+    body('description').optional().trim()
 ], async (req, res) => {
     try {
         // Check validation errors
@@ -37,7 +38,8 @@ router.post('/', [
             purpose,
             accommodationAddress,
             localContactName,
-            localContactPhone
+            localContactPhone,
+            description
         } = req.body;
 
         // Validate departure date is not in the past
@@ -67,8 +69,8 @@ router.post('/', [
         const result = await query(`
             INSERT INTO travel_plans (
                 user_id, destination_country_id, departure_date, return_date,
-                purpose, accommodation_address, local_contact_name, local_contact_phone
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                purpose, accommodation_address, local_contact_name, local_contact_phone, description
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
             req.user.id,
@@ -78,7 +80,8 @@ router.post('/', [
             purpose,
             accommodationAddress,
             localContactName,
-            localContactPhone
+            localContactPhone,
+            description
         ]);
 
         const travelPlan = result.rows[0];
@@ -101,6 +104,7 @@ router.post('/', [
                     name: travelPlan.local_contact_name,
                     phone: travelPlan.local_contact_phone
                 },
+                description: travelPlan.description,
                 isActive: travelPlan.is_active,
                 createdAt: travelPlan.created_at
             }
@@ -133,7 +137,7 @@ router.get('/admin', authenticateToken, async (req, res) => {
         const result = await query(`
             SELECT tp.id, tp.departure_date, tp.return_date, tp.purpose,
                    tp.accommodation_address, tp.local_contact_name, tp.local_contact_phone,
-                   tp.is_active, tp.created_at, tp.updated_at,
+                   tp.description, tp.is_active, tp.created_at, tp.updated_at,
                    c.id as country_id, c.name as country_name, c.code as country_code,
                    c.risk_level, c.latitude, c.longitude,
                    u.first_name, u.last_name, u.email
@@ -160,6 +164,7 @@ router.get('/admin', authenticateToken, async (req, res) => {
             accommodationAddress: row.accommodation_address,
             localContactName: row.local_contact_name,
             localContactPhone: row.local_contact_phone,
+            description: row.description,
             isActive: row.is_active,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
@@ -215,7 +220,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const result = await query(`
             SELECT tp.id, tp.departure_date, tp.return_date, tp.purpose,
                    tp.accommodation_address, tp.local_contact_name, tp.local_contact_phone,
-                   tp.is_active, tp.created_at, tp.updated_at,
+                   tp.description, tp.is_active, tp.created_at, tp.updated_at,
                    c.id as country_id, c.name as country_name, c.code as country_code,
                    c.risk_level, c.latitude, c.longitude
             FROM travel_plans tp
@@ -250,6 +255,7 @@ router.get('/', authenticateToken, async (req, res) => {
                 name: row.local_contact_name,
                 phone: row.local_contact_phone
             },
+            description: row.description,
             isActive: row.is_active,
             createdAt: row.created_at,
             updatedAt: row.updated_at
@@ -368,6 +374,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 name: plan.local_contact_name,
                 phone: plan.local_contact_phone
             },
+            description: plan.description,
             isActive: plan.is_active,
             createdAt: plan.created_at,
             updatedAt: plan.updated_at,
@@ -388,10 +395,11 @@ router.put('/:id', [
     authenticateToken,
     body('departureDate').optional().isDate(),
     body('returnDate').optional().isDate(),
-    body('purpose').optional().isIn(['business', 'tourism', 'study', 'family', 'other']),
+    body('purpose').optional().isIn(['business', 'tourism', 'study', 'family', 'other', 'work']),
     body('accommodationAddress').optional().trim(),
     body('localContactName').optional().trim(),
-    body('localContactPhone').optional().trim()
+    body('localContactPhone').optional().trim(),
+    body('description').optional().trim()
 ], async (req, res) => {
     try {
         // Check validation errors
@@ -410,7 +418,8 @@ router.put('/:id', [
             purpose,
             accommodationAddress,
             localContactName,
-            localContactPhone
+            localContactPhone,
+            description
         } = req.body;
 
         // Check if travel plan exists and belongs to user
@@ -470,6 +479,12 @@ router.put('/:id', [
             paramCount++;
             updates.push(`local_contact_phone = $${paramCount}`);
             params.push(localContactPhone);
+        }
+
+        if (description !== undefined) {
+            paramCount++;
+            updates.push(`description = $${paramCount}`);
+            params.push(description);
         }
 
         if (updates.length === 0) {

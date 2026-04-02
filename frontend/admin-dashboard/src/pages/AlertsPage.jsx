@@ -30,10 +30,9 @@ const SEVERITY_COLORS = {
 const ALERT_TYPE_OPTIONS = [
   'security',
   'health',
-  'natural_disaster',
-  'political_unrest',
-  'transportation',
-  'general'
+  'weather',
+  'travel_advisory',
+  'embassy'
 ]
 
 export default function AlertsPage() {
@@ -388,7 +387,7 @@ function AlertModal({ alert, onClose, onSave }) {
     title: alert?.title || '',
     message: alert?.message || '',
     severity: alert?.severity || 'warning',
-    alertType: alert?.alertType || 'general',
+    alertType: alert?.alertType || 'security',
     countryId: alert?.countryId || '',
     isActive: alert?.isActive ?? true,
     expiresAt: alert?.expiresAt ? new Date(alert.expiresAt).toISOString().split('T')[0] : ''

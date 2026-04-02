@@ -14,7 +14,10 @@ import {
   BarChart3,
   TrendingUp,
   AlertTriangle,
-  User
+  User,
+  Users,
+  Globe,
+  Target
 } from 'lucide-react'
 import { apiService } from '../services/api'
 import toast from 'react-hot-toast'
@@ -53,6 +56,7 @@ export default function NotificationsPage() {
   const [filterChannel, setFilterChannel] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [showTestModal, setShowTestModal] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
   const [stats, setStats] = useState({
     total: 0,
     sent: 0,
@@ -157,8 +161,15 @@ export default function NotificationsPage() {
             <option value="90d">Last 90 days</option>
           </select>
           <button
-            onClick={() => setShowTestModal(true)}
+            onClick={() => setShowSendModal(true)}
             className="btn-primary flex items-center space-x-2"
+          >
+            <Bell className="h-5 w-5" />
+            <span>Send Notification</span>
+          </button>
+          <button
+            onClick={() => setShowTestModal(true)}
+            className="btn-secondary flex items-center space-x-2"
           >
             <Send className="h-5 w-5" />
             <span>Send Test</span>
@@ -399,6 +410,18 @@ export default function NotificationsPage() {
         )}
       </div>
 
+      {/* Send Notification Modal */}
+      {showSendModal && (
+        <SendNotificationModal
+          onClose={() => setShowSendModal(false)}
+          onSent={() => {
+            fetchNotifications()
+            fetchStats()
+            setShowSendModal(false)
+          }}
+        />
+      )}
+
       {/* Test Notification Modal */}
       {showTestModal && (
         <TestNotificationModal
@@ -526,6 +549,373 @@ function TestNotificationModal({ onClose, onSent }) {
                     <li>Email: Sent to your registered admin email</li>
                     <li>SMS: Requires valid phone number in profile</li>
                     <li>Push: Requires registered device token</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SendNotificationModal({ onClose, onSent }) {
+  const [formData, setFormData] = useState({
+    recipients: 'all',
+    countryId: '',
+    channels: ['email'],
+    title: '',
+    message: '',
+    severity: 'info'
+  })
+  const [loading, setLoading] = useState(false)
+  const [countries, setCountries] = useState([])
+  const [loadingCountries, setLoadingCountries] = useState(false)
+
+  useEffect(() => {
+    if (formData.recipients === 'country') {
+      fetchCountries()
+    }
+  }, [formData.recipients])
+
+  const fetchCountries = async () => {
+    try {
+      setLoadingCountries(true)
+      const response = await apiService.getCountries({ limit: 300 })
+      setCountries(response.data.countries || [])
+    } catch (error) {
+      console.error('Error fetching countries:', error)
+      toast.error('Failed to load countries')
+    } finally {
+      setLoadingCountries(false)
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!formData.title.trim() || !formData.message.trim()) {
+      toast.error('Title and message are required')
+      return
+    }
+
+    if (formData.channels.length === 0) {
+      toast.error('Please select at least one notification channel')
+      return
+    }
+
+    if (formData.recipients === 'country' && !formData.countryId) {
+      toast.error('Please select a country')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const notificationData = {
+        recipients: formData.recipients,
+        channels: formData.channels,
+        title: formData.title,
+        message: formData.message,
+        severity: formData.severity
+      }
+
+      if (formData.recipients === 'country') {
+        notificationData.countryId = formData.countryId
+      }
+
+      const response = await apiService.sendCustomNotification(notificationData)
+      const result = response.data
+
+      toast.success(
+        `Notification sent successfully! ${result.sent} sent, ${result.failed} failed to ${result.recipients} users via ${result.channels.join(', ')}`
+      )
+      onSent()
+    } catch (error) {
+      console.error('Error sending notification:', error)
+      toast.error(error.response?.data?.error || 'Failed to send notification')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target
+
+    if (name === 'channels') {
+      setFormData(prev => ({
+        ...prev,
+        channels: checked
+          ? [...prev.channels, value]
+          : prev.channels.filter(channel => channel !== value)
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }))
+    }
+  }
+
+  const getRecipientCount = () => {
+    switch (formData.recipients) {
+      case 'all':
+        return 'all verified users'
+      case 'active':
+        return 'users with active travel plans'
+      case 'country':
+        return formData.countryId ? 'users traveling to selected country' : 'users traveling to specific country'
+      default:
+        return 'users'
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              Send Custom Notification
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Recipients */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Recipients *
+              </label>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    id="recipients-all"
+                    name="recipients"
+                    type="radio"
+                    value="all"
+                    checked={formData.recipients === 'all'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  />
+                  <label htmlFor="recipients-all" className="ml-3 flex items-center">
+                    <Users className="h-4 w-4 text-gray-500 mr-2" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">All Users</div>
+                      <div className="text-xs text-gray-500">Send to all verified users</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="recipients-active"
+                    name="recipients"
+                    type="radio"
+                    value="active"
+                    checked={formData.recipients === 'active'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  />
+                  <label htmlFor="recipients-active" className="ml-3 flex items-center">
+                    <Target className="h-4 w-4 text-gray-500 mr-2" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Active Travelers</div>
+                      <div className="text-xs text-gray-500">Users with active travel plans</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="recipients-country"
+                    name="recipients"
+                    type="radio"
+                    value="country"
+                    checked={formData.recipients === 'country'}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  />
+                  <label htmlFor="recipients-country" className="ml-3 flex items-center">
+                    <Globe className="h-4 w-4 text-gray-500 mr-2" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Country Travelers</div>
+                      <div className="text-xs text-gray-500">Users traveling to specific country</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {formData.recipients === 'country' && (
+                <div className="mt-3">
+                  <select
+                    name="countryId"
+                    value={formData.countryId}
+                    onChange={handleChange}
+                    className="form-input"
+                    disabled={loadingCountries}
+                  >
+                    <option value="">Select country...</option>
+                    {countries.map((country) => (
+                      <option key={country.id} value={country.id}>
+                        {country.name} {country.risk_level && `(${country.risk_level} risk)`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Channels */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Notification Channels *
+              </label>
+              <div className="space-y-2">
+                {[
+                  { id: 'email', label: 'Email', icon: Mail, description: 'Send via email' },
+                  { id: 'sms', label: 'SMS', icon: MessageSquare, description: 'Send via text message' },
+                  { id: 'push', label: 'Push', icon: Smartphone, description: 'Send via push notification' }
+                ].map(channel => {
+                  const Icon = channel.icon
+                  return (
+                    <div key={channel.id} className="flex items-center">
+                      <input
+                        id={`channel-${channel.id}`}
+                        name="channels"
+                        type="checkbox"
+                        value={channel.id}
+                        checked={formData.channels.includes(channel.id)}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`channel-${channel.id}`} className="ml-3 flex items-center">
+                        <Icon className="h-4 w-4 text-gray-500 mr-2" />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{channel.label}</div>
+                          <div className="text-xs text-gray-500">{channel.description}</div>
+                        </div>
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Severity */}
+            <div>
+              <label htmlFor="severity" className="block text-sm font-medium text-gray-700">
+                Severity
+              </label>
+              <select
+                id="severity"
+                name="severity"
+                value={formData.severity}
+                onChange={handleChange}
+                className="form-input"
+              >
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+                <option value="emergency">Emergency</option>
+              </select>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                Title *
+              </label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                required
+                maxLength={200}
+                className="form-input"
+                placeholder="Notification title..."
+                value={formData.title}
+                onChange={handleChange}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.title.length}/200 characters
+              </p>
+            </div>
+
+            {/* Message */}
+            <div>
+              <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+                Message *
+              </label>
+              <textarea
+                id="message"
+                name="message"
+                required
+                rows={4}
+                maxLength={1000}
+                className="form-input"
+                placeholder="Notification message..."
+                value={formData.message}
+                onChange={handleChange}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.message.length}/1000 characters
+              </p>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">Preview</h4>
+              <div className="text-xs text-gray-600">
+                <p><strong>Recipients:</strong> {getRecipientCount()}</p>
+                <p><strong>Channels:</strong> {formData.channels.join(', ') || 'None selected'}</p>
+                <p><strong>Severity:</strong> {formData.severity}</p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary flex items-center space-x-2"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Bell className="h-4 w-4" />
+                )}
+                <span>{loading ? 'Sending...' : 'Send Notification'}</span>
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Important Notes
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Notifications will only be sent to users who have enabled the selected channels</li>
+                    <li>Users without required contact info (email/phone) will be skipped</li>
+                    <li>All notifications are logged and can be viewed in the notifications history</li>
+                    <li>Emergency notifications will override user preferences</li>
                   </ul>
                 </div>
               </div>

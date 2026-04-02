@@ -180,6 +180,10 @@ class ApiService {
     return this.post('/notifications/test', { channel, message })
   }
 
+  async sendCustomNotification(notificationData) {
+    return this.post('/notifications/send', notificationData)
+  }
+
   async acknowledgeNotifications(notificationIds) {
     return this.post('/notifications/acknowledge', { notificationIds })
   }

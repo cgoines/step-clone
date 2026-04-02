@@ -600,6 +600,192 @@ router.get('/recent', authenticateToken, async (req, res) => {
 });
 
 /**
+ * Send custom notification (admin only)
+ * POST /api/notifications/send
+ */
+router.post('/send', [
+    authenticateToken,
+    body('userIds').optional().isArray().withMessage('User IDs must be an array'),
+    body('userIds.*').optional().isUUID().withMessage('Each user ID must be a valid UUID'),
+    body('recipients').optional().isIn(['all', 'active', 'country']).withMessage('Recipients must be: all, active, or country'),
+    body('countryId').optional().isUUID().withMessage('Country ID must be a valid UUID'),
+    body('channels').isArray().withMessage('Channels must be an array').custom((channels) => {
+        const validChannels = ['email', 'sms', 'push'];
+        return channels.every(channel => validChannels.includes(channel));
+    }),
+    body('title').isLength({ min: 1, max: 200 }).withMessage('Title must be 1-200 characters'),
+    body('message').isLength({ min: 1, max: 1000 }).withMessage('Message must be 1-1000 characters'),
+    body('severity').optional().isIn(['info', 'warning', 'critical', 'emergency']).withMessage('Invalid severity level')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                error: 'Validation failed',
+                details: errors.array()
+            });
+        }
+
+        const {
+            userIds,
+            recipients = 'all',
+            countryId,
+            channels,
+            title,
+            message,
+            severity = 'info'
+        } = req.body;
+
+        // Build user query based on recipients
+        let userQuery = '';
+        let userParams = [];
+
+        if (userIds && userIds.length > 0) {
+            // Send to specific users
+            const placeholders = userIds.map((_, index) => `$${index + 1}`).join(',');
+            userQuery = `SELECT id, email, phone, sms_enabled, push_enabled, email_enabled, first_name, last_name
+                        FROM users
+                        WHERE id IN (${placeholders}) AND is_verified = true`;
+            userParams = userIds;
+        } else if (recipients === 'country' && countryId) {
+            // Send to users with travel plans to specific country
+            userQuery = `SELECT DISTINCT u.id, u.email, u.phone, u.sms_enabled, u.push_enabled, u.email_enabled, u.first_name, u.last_name
+                        FROM users u
+                        JOIN travel_plans tp ON u.id = tp.user_id
+                        WHERE tp.destination_country_id = $1
+                        AND tp.is_active = true
+                        AND u.is_verified = true
+                        AND (tp.departure_date >= CURRENT_DATE OR tp.return_date >= CURRENT_DATE)`;
+            userParams = [countryId];
+        } else if (recipients === 'active') {
+            // Send to users with active travel plans
+            userQuery = `SELECT DISTINCT u.id, u.email, u.phone, u.sms_enabled, u.push_enabled, u.email_enabled, u.first_name, u.last_name
+                        FROM users u
+                        JOIN travel_plans tp ON u.id = tp.user_id
+                        WHERE tp.is_active = true
+                        AND u.is_verified = true
+                        AND (tp.departure_date >= CURRENT_DATE OR tp.return_date >= CURRENT_DATE)`;
+        } else {
+            // Send to all verified users
+            userQuery = `SELECT id, email, phone, sms_enabled, push_enabled, email_enabled, first_name, last_name
+                        FROM users
+                        WHERE is_verified = true`;
+        }
+
+        const usersResult = await query(userQuery, userParams);
+        const users = usersResult.rows;
+
+        if (users.length === 0) {
+            return res.status(400).json({ error: 'No eligible users found for notification' });
+        }
+
+        // Create a custom alert record for this notification
+        const alertResult = await query(`
+            INSERT INTO alerts (title, message, severity, alert_type, created_by, is_active)
+            VALUES ($1, $2, $3, 'custom', $4, true)
+            RETURNING id
+        `, [title, message, severity, req.user.email]);
+
+        const alertId = alertResult.rows[0].id;
+
+        let notificationsSent = 0;
+        let notificationsFailed = 0;
+        const results = { email: [], sms: [], push: [] };
+
+        // Send notifications to each user via each selected channel
+        for (const user of users) {
+            for (const channel of channels) {
+                // Check if user has this channel enabled
+                const channelEnabled = user[`${channel}_enabled`];
+
+                if (!channelEnabled) {
+                    notificationsFailed++;
+                    continue;
+                }
+
+                try {
+                    // Insert notification record
+                    const notificationResult = await query(`
+                        INSERT INTO user_notifications (user_id, alert_id, channel, status)
+                        VALUES ($1, $2, $3, 'pending')
+                        RETURNING id
+                    `, [user.id, alertId, channel]);
+
+                    const notificationId = notificationResult.rows[0].id;
+
+                    // Send via appropriate service
+                    let sendResult;
+                    switch (channel) {
+                        case 'email':
+                            if (!user.email) throw new Error('No email address');
+                            sendResult = await sendEmail(user.email, `STEP Clone: ${title}`, `${title}\n\n${message}`);
+                            break;
+                        case 'sms':
+                            if (!user.phone) throw new Error('No phone number');
+                            sendResult = await sendSMS(user.phone, `${title}: ${message}`);
+                            break;
+                        case 'push':
+                            sendResult = await sendNotification(user.id, title, message, severity);
+                            if (sendResult.length === 0) throw new Error('No registered devices');
+                            break;
+                    }
+
+                    // Update notification as sent
+                    await query(`
+                        UPDATE user_notifications
+                        SET status = 'sent', sent_at = CURRENT_TIMESTAMP
+                        WHERE id = $1
+                    `, [notificationId]);
+
+                    notificationsSent++;
+                    results[channel].push({
+                        userId: user.id,
+                        email: user.email,
+                        name: `${user.first_name} ${user.last_name}`,
+                        status: 'sent'
+                    });
+
+                } catch (sendError) {
+                    // Update notification with error
+                    await query(`
+                        UPDATE user_notifications
+                        SET status = 'failed', error_message = $1
+                        WHERE user_id = $2 AND alert_id = $3 AND channel = $4
+                    `, [sendError.message, user.id, alertId, channel]);
+
+                    notificationsFailed++;
+                    results[channel].push({
+                        userId: user.id,
+                        email: user.email,
+                        name: `${user.first_name} ${user.last_name}`,
+                        status: 'failed',
+                        error: sendError.message
+                    });
+
+                    logger.error(`Failed to send ${channel} notification to user ${user.id}:`, sendError);
+                }
+            }
+        }
+
+        logger.info(`Custom notification sent by ${req.user.email}: ${notificationsSent} sent, ${notificationsFailed} failed`);
+
+        res.json({
+            message: `Notification sent successfully`,
+            alertId: alertId,
+            recipients: users.length,
+            channels: channels,
+            sent: notificationsSent,
+            failed: notificationsFailed,
+            results: results
+        });
+
+    } catch (error) {
+        logger.error('Error sending custom notification:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * Resend failed notification
  * POST /api/notifications/:id/resend
  */

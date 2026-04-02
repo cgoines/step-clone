@@ -70,8 +70,8 @@ export default function CreateTravelPlanPage() {
         returnDate,
         purpose: plan.purpose || 'tourism',
         accommodationAddress: plan.accommodationAddress || '',
-        localContactName: plan.localContactName || '',
-        localContactPhone: plan.localContactPhone || '',
+        localContactName: plan.localContact?.name || '',
+        localContactPhone: plan.localContact?.phone || '',
         description: plan.description || ''
       })
     } catch (error) {

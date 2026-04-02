@@ -12,18 +12,22 @@ const geoUrl = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/m
 const TravelPlansMap = memo(({ travelPlans = [], countries = [], onCountryClick, selectedCountryId }) => {
   const [tooltipData, setTooltipData] = useState(null)
 
+  // Debug: Basic info
+  console.log('TravelPlansMap:', `${travelPlans.length} plans, ${countries.length} countries`)
+
   // Helper function to get status from dates
   const getStatusFromDates = (startDate, endDate) => {
     const now = new Date()
+    now.setHours(0, 0, 0, 0) // Reset time to beginning of day
+
     const start = new Date(startDate)
+    start.setHours(0, 0, 0, 0)
+
     const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999) // Set to end of day
 
-    const nowDateStr = now.toISOString().split('T')[0]
-    const startDateStr = start.toISOString().split('T')[0]
-    const endDateStr = end.toISOString().split('T')[0]
-
-    if (startDateStr <= nowDateStr && endDateStr >= nowDateStr) return 'active'
-    if (endDateStr < nowDateStr) return 'completed'
+    if (start <= now && end >= now) return 'active'
+    if (end < now) return 'completed'
     return 'upcoming'
   }
 
@@ -34,12 +38,14 @@ const TravelPlansMap = memo(({ travelPlans = [], countries = [], onCountryClick,
     }
     return acc
   }, {})
+  console.log('Country mappings:', Object.keys(countryCodeMap).length)
 
   // Filter for upcoming and active travel plans only
   const relevantTravelPlans = travelPlans.filter(plan => {
     const status = getStatusFromDates(plan.departureDate, plan.returnDate)
     return status === 'upcoming' || status === 'active'
   })
+  console.log('Relevant plans:', relevantTravelPlans.length)
 
   // Create a map of 3-letter ISO codes to travel plan data
   const countryTravelData = relevantTravelPlans.reduce((acc, plan) => {
@@ -59,10 +65,13 @@ const TravelPlansMap = memo(({ travelPlans = [], countries = [], onCountryClick,
           ...plan,
           status: getStatusFromDates(plan.departureDate, plan.returnDate)
         })
+      } else {
+        console.warn(`No 3-letter mapping found for ${plan.destination.name} (${twoLetterCode})`)
       }
     }
     return acc
   }, {})
+  console.log('Countries to highlight:', Object.keys(countryTravelData).join(', '))
 
   // Get country fill color based on travel plans
   const getCountryFill = (geo, isSelected = false) => {
@@ -72,6 +81,7 @@ const TravelPlansMap = memo(({ travelPlans = [], countries = [], onCountryClick,
     if (isSelected) {
       return "#1e40af" // blue-700 for selected
     }
+
 
     if (!travelData) {
       return "#f3f4f6" // gray-100 for no travel plans
@@ -199,6 +209,7 @@ const TravelPlansMap = memo(({ travelPlans = [], countries = [], onCountryClick,
                 const travelData = countryTravelData[threeLetterCode]
                 const isSelected = selectedCountryId &&
                   countries.find(c => c.id === selectedCountryId)?.iso_code?.toUpperCase() === threeLetterCode
+
 
                 return (
                   <Geography

@@ -18,11 +18,11 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Users', href: '/users', icon: Users },
   { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Countries', href: '/countries', icon: Globe },
   { name: 'Travel Plans', href: '/travel-plans', icon: MapPin },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Users', href: '/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
